@@ -1,0 +1,4 @@
+#!/usr/bin/env node
+
+console.error('yamlock CLI will arrive in later milestones.');
+process.exit(1);

@@ -1,0 +1,57 @@
+{
+  "name": "yamlock",
+  "version": "0.0.1",
+  "description": "Value-level encryption for YAML/JSON configuration files with CLI + Node.js APIs.",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "yamlock": "bin/yamlock"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "yaml",
+    "cli",
+    "config",
+    "json",
+    "encryption",
+    "security"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "build": "rimraf dist && cp -R src dist",
+    "lint": "eslint .",
+    "prepare": "yarn run build",
+    "test": "node --test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/phoenixweiss/yamlock.git"
+  },
+  "bugs": {
+    "url": "https://github.com/phoenixweiss/yamlock/issues"
+  },
+  "homepage": "https://github.com/phoenixweiss/yamlock#readme",
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "eslint": "^9.0.0",
+    "globals": "^15.0.0",
+    "rimraf": "^5.0.5"
+  }
+}
