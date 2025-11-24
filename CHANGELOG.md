@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. Each step in the execution plan increments the version and should be tagged accordingly.
 
+## [0.0.4] - 2025-11-25
+### Added
+- `decryptValue` support with field-path validation and yamlock payload parsing.
+- Unit tests for decrypt flow, mismatch handling, and invalid payload detection.
+
 ## [0.0.3] - 2025-11-24
 ### Added
 - `encryptValue` function that encrypts string fields with per-path salts and random IVs.
