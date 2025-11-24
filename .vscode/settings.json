@@ -11,6 +11,7 @@
     "vite",
     "vitepress",
     "vuepress",
-    "wscript"
+    "wscript",
+    "yamlock"
   ]
 }
