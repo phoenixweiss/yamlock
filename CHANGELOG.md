@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. Each step in the execution plan increments the version and should be tagged accordingly.
 
+## [0.0.3] - 2025-11-24
+### Added
+- `encryptValue` function that encrypts string fields with per-path salts and random IVs.
+- Unit tests covering payload structure, IV randomness, and validation checks.
+
 ## [0.0.2] - 2025-11-24
 ### Added
 - Crypto utility helpers for key derivation, IV generation, salt encoding, and payload formatting/parsing.
