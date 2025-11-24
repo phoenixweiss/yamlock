@@ -1,6 +1,13 @@
+```ascii
+          ▜       ▌
+▌ ▌▝▀▖▛▚▀▖▐ ▞▀▖▞▀▖▌▗▘
+▚▄▌▞▀▌▌▐ ▌▐ ▌ ▌▌ ▖▛▚
+▗▄▘▝▀▘▘▝ ▘ ▘▝▀ ▝▀ ▘ ▘
+```
+
 # yamlock
 
-Value-level encryption for YAML and JSON configuration files. The project is at the very first scaffolding step and no crypto logic is live yet.
+Value-level encryption for YAML and JSON configuration files. The name **yamlock** combines "YAML" and "lock" while also sounding like "warlock", hinting at a little configuration magic.
 
 ## Requirements
 
@@ -40,6 +47,17 @@ yamlock/
 ## Roadmap snapshot
 
 The roadmap is tracked outside of the git history while the project is still taking shape.
+
+## Inspiration and motivation
+
+I have worked with Ruby on Rails apps for more than ten years and appreciated how its secret management evolved between 4.2 and 6.x. That flow influenced yamlock, but I also explored modern tools such as:
+
+- [autoapply/yaml-crypt](https://github.com/autoapply/yaml-crypt)
+- [huwtl/secure_yaml](https://github.com/huwtl/secure_yaml)
+- [bitnami-labs/sealed-secrets](https://github.com/bitnami-labs/sealed-secrets)
+- [getsops/sops](https://github.com/getsops/sops)
+
+Each of those projects tackles secure config storage differently, yet none fit my exact needs. yamlock is the bicycle I am building for my own projects to add an extra layer of encryption for sensitive YAML/JSON values while keeping the workflow lightweight.
 
 ## License
 
