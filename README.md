@@ -16,8 +16,9 @@ Value-level encryption for YAML and JSON configuration files. The name **yamlock
 ## Current status
 
 - Package metadata, linting config, and MIT license are in place.
+- Core crypto helpers (`encryptValue`, `decryptValue`, and supporting utils) work with per-field salts and have unit tests.
 - Directory structure for source, CLI, tests, and examples exists.
-- CLI binary is a stub that only prints a placeholder message.
+- CLI binary is still a stub that only prints a placeholder message; config traversal and file IO are not implemented yet.
 
 ## Working locally
 
