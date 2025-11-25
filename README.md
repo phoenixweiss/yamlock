@@ -62,6 +62,8 @@ const locked = processConfig(config, { mode: 'encrypt', key: process.env.YAMLOCK
 const unlocked = processConfig(locked, { mode: 'decrypt', key: process.env.YAMLOCK_KEY });
 ```
 
+See `examples/basic.js` for a runnable end-to-end script (`node examples/basic.js`).
+
 ### Encrypted value format
 
 Every locked string follows the format:

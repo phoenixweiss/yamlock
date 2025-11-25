@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. Each step in the execution plan increments the version and should be tagged accordingly.
 
+## [0.1.0] - 2025-11-26
+### Added
+- Example script under `examples/basic.js` demonstrating encrypt/decrypt flows.
+- GitHub Actions CI workflow to lint, test, and build on pushes/PRs.
+- README now links to the example script.
+
 ## [0.0.10] - 2025-11-26
 ### Added
 - Expanded README with usage examples, encrypted format description, and contributing link.
