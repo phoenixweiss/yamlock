@@ -106,6 +106,12 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development workflow, available scrip
 
 `yamlock` returns `0` when encryption/decryption completes successfully and `1` on validation or runtime errors (missing keys, malformed payloads, failed file reads). Use these exit codes to gate CI jobs or deployment steps.
 
+## Future work
+
+- Additional cipher presets and stronger default algorithms.
+- More CLI/API examples for rotating keys, selective field targeting, and CI automation.
+- Configurable behavior for non-string values (skip vs. coerce) and stricter file format validation.
+
 ## License
 
 MIT © PAVEL TKACHEV
