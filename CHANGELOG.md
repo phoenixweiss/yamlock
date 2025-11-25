@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. Each step in the execution plan increments the version and should be tagged accordingly.
 
+## [0.0.5] - 2025-11-25
+### Added
+- Field path utilities that serialize nested object/array locations (`src/utils/path.js`).
+- Unit tests covering dot/bracket formatting and invalid input handling.
+
 ## [0.0.4] - 2025-11-25
 ### Added
 - `decryptValue` support with field-path validation and yamlock payload parsing.
