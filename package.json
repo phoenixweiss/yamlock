@@ -1,6 +1,6 @@
 {
   "name": "yamlock",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Value-level encryption for YAML/JSON configuration files with CLI + Node.js APIs.",
   "license": "MIT",
   "type": "module",

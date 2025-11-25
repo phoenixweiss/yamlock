@@ -7,11 +7,11 @@ import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import yaml from 'js-yaml';
 
-const CLI_PATH = new URL('../../dist/cli/cli.js', import.meta.url).pathname;
+const CLI_BIN = new URL('../../bin/yamlock', import.meta.url).pathname;
 const KEY = 'integration-secret-key';
 
 function runCli(args, env = {}) {
-  const result = spawnSync('node', [CLI_PATH, ...args], {
+  const result = spawnSync('node', [CLI_BIN, ...args], {
     env: { ...process.env, ...env },
     encoding: 'utf8'
   });

@@ -87,8 +87,8 @@ function parseArgs(argv) {
   return result;
 }
 
-async function main() {
-  const { command, file, options } = parseArgs(process.argv);
+export async function runCli(argv = process.argv) {
+  const { command, file, options } = parseArgs(argv);
 
   if (!command || !file) {
     print(HELP_TEXT.trim());
@@ -135,5 +135,5 @@ async function main() {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main();
+  runCli();
 }

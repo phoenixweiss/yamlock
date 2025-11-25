@@ -13,27 +13,29 @@ Value-level encryption for YAML and JSON configuration files. The name **yamlock
 - Node.js 22.x via `asdf`
 - Yarn Classic (1.x)
 
-## Current status
+## Installation
 
-- Package metadata, linting config, and MIT license are in place.
-- Core crypto helpers (`encryptValue`, `decryptValue`, and supporting utils) work with per-field salts and have unit tests.
-- `processConfig` can walk nested objects/arrays and apply encryption/decryption to every string value.
-- Public API exports (`encryptValue`, `decryptValue`, `processConfig`, `getSupportedAlgorithms`) are wired and verified by tests.
-- Directory structure for source, CLI, tests, and examples exists.
-- CLI binary can encrypt/decrypt YAML and JSON files by calling `processConfig`.
+### npm
 
-## Working locally
+```bash
+npm install -g yamlock      # CLI usage
+npm install yamlock         # project dependency
+```
 
-1. Install the toolchain: `asdf install nodejs 22` and `yarn set version classic` if needed.
-2. Install dependencies with `yarn install`.
-3. Use the scripts below during development.
+### Yarn Classic
 
-## Available scripts
+```bash
+yarn global add yamlock     # CLI usage
+yarn add yamlock            # project dependency
+```
 
-- `yarn build` — copies the current `src` tree into `dist` (temporary until a real build pipeline appears).
-- `yarn prepare` — invokes `yarn build` automatically when installing from git.
-- `yarn test` — runs Node built-in test runner.
-- `yarn lint` — executes ESLint with the provided config.
+## Features
+
+- Encrypt/decrypt individual configuration values with deterministic field-path salts.
+- CLI workflow that processes YAML or JSON files in place.
+- Recursively lock/unlock entire objects via `processConfig`.
+- Public API exports that mirror CLI behavior for programmatic use.
+- Focus on Node.js 22+, ESM modules, and a lightweight dependency set (`js-yaml`).
 
 ## Usage
 
@@ -72,24 +74,18 @@ Every locked string follows the format:
 yl|<algorithm>|<salt_base64>|<iv_base64>|<data_base64>
 ```
 
-where the salt is derived from the full field path. Moving or renaming the field invalidates the salt, preventing accidental decryption in the wrong location.
+Where:
+- yl - format marker prefix
+- <algorithm> - algorithm name (e.g., aes-256-cbc)
+- <salt_base64> - Base64-encoded field path
+- <iv_base64> - Base64-encoded initialization vector
+- <data_base64> - Base64-encoded encrypted data
+
+The salt is derived from the full field path. Moving or renaming the field invalidates the salt, preventing accidental decryption in the wrong location.
 
 ### Key rotation
 
 See [docs/key-rotation.md](docs/key-rotation.md) for a step-by-step guide to rotating `YAMLOCK_KEY` without losing data.
-
-## Project structure
-
-```txt
-yamlock/
-├── src/            # Source files (API, CLI, utilities)
-├── dist/           # Build output created by `yarn build`
-├── bin/            # CLI entry point (loads dist/cli/cli.js)
-├── test/           # Unit and integration suites
-├── examples/       # Usage demos (TBD)
-├── CHANGELOG.md    # Step-by-step release history
-└── README.md / LICENSE
-```
 
 ## Inspiration and motivation
 
@@ -104,7 +100,7 @@ Each of those projects solves secure config storage differently, yet none fit my
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development workflow, coding standards, and release instructions.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development workflow, available scripts, and release instructions.
 
 ## Exit codes
 

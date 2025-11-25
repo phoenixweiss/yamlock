@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. Each step in the execution plan increments the version and should be tagged accordingly.
 
+## [0.1.2] - 2025-11-26
+### Fixed
+- CLI binary now falls back to the source entry during development, ensuring `yamlock` works when installed globally or run via `node bin/yamlock`.
+- Integration tests call the published bin, catching future regressions.
+
 ## [0.1.1] - 2025-11-26
 ### Added
 - Key rotation guide under `docs/key-rotation.md` and README link.
