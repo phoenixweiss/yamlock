@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. Each step in the execution plan increments the version and should be tagged accordingly.
 
+## [0.0.6] - 2025-11-25
+### Added
+- `processConfig` helper to walk objects/arrays and encrypt or decrypt every string value based on field paths.
+- Unit tests covering nested traversal, arrays, round-trips, and validation errors.
+
 ## [0.0.5] - 2025-11-25
 ### Added
 - Field path utilities that serialize nested object/array locations (`src/utils/path.js`).
