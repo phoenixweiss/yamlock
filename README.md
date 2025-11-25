@@ -18,6 +18,7 @@ Value-level encryption for YAML and JSON configuration files. The name **yamlock
 - Package metadata, linting config, and MIT license are in place.
 - Core crypto helpers (`encryptValue`, `decryptValue`, and supporting utils) work with per-field salts and have unit tests.
 - `processConfig` can walk nested objects/arrays and apply encryption/decryption to every string value.
+- Public API exports (`encryptValue`, `decryptValue`, `processConfig`, `getSupportedAlgorithms`) are wired and verified by tests.
 - Directory structure for source, CLI, tests, and examples exists.
 - CLI binary is still a stub; YAML/JSON loading and file IO are not implemented yet.
 
