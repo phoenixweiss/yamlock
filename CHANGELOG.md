@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. Each step in the execution plan increments the version and should be tagged accordingly.
 
+## [0.0.8] - 2025-11-26
+### Added
+- CLI skeleton capable of encrypting/decrypting JSON files with `--key` and `--algorithm` options.
+- Integration tests covering CLI encrypt/decrypt flows and key validation.
+
 ## [0.0.7] - 2025-11-26
 ### Added
 - Public API exports for `encryptValue`, `decryptValue`, `processConfig`, and `getSupportedAlgorithms`.

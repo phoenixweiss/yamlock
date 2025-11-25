@@ -1,4 +1,6 @@
 #!/usr/bin/env node
 
-console.error('yamlock CLI will arrive in later milestones.');
-process.exit(1);
+import('../dist/cli/cli.js').catch((error) => {
+  console.error('[yamlock] CLI failed to start:', error);
+  process.exit(1);
+});

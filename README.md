@@ -20,7 +20,7 @@ Value-level encryption for YAML and JSON configuration files. The name **yamlock
 - `processConfig` can walk nested objects/arrays and apply encryption/decryption to every string value.
 - Public API exports (`encryptValue`, `decryptValue`, `processConfig`, `getSupportedAlgorithms`) are wired and verified by tests.
 - Directory structure for source, CLI, tests, and examples exists.
-- CLI binary is still a stub; YAML/JSON loading and file IO are not implemented yet.
+- CLI binary can encrypt/decrypt JSON files by calling `processConfig`. YAML support is planned next.
 
 ## Working locally
 
@@ -41,7 +41,7 @@ Value-level encryption for YAML and JSON configuration files. The name **yamlock
 yamlock/
 ├── src/            # Source files (API, CLI, utilities)
 ├── dist/           # Build output created by `yarn build`
-├── bin/            # CLI entry point (currently a stub)
+├── bin/            # CLI entry point (loads dist/cli/cli.js)
 ├── test/           # Unit and integration suites
 ├── examples/       # Usage demos (TBD)
 ├── CHANGELOG.md    # Step-by-step release history
