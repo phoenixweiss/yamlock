@@ -75,11 +75,11 @@ yl|<algorithm>|<salt_base64>|<iv_base64>|<data_base64>
 ```
 
 Where:
-- yl - format marker prefix
-- <algorithm> - algorithm name (e.g., aes-256-cbc)
-- <salt_base64> - Base64-encoded field path
-- <iv_base64> - Base64-encoded initialization vector
-- <data_base64> - Base64-encoded encrypted data
+- `yl` - format marker prefix
+- `<algorithm>` - algorithm name (e.g., aes-256-cbc)
+- `<salt_base64>` - Base64-encoded field path
+- `<iv_base64>` - Base64-encoded initialization vector
+- `<data_base64>` - Base64-encoded encrypted data
 
 The salt is derived from the full field path. Moving or renaming the field invalidates the salt, preventing accidental decryption in the wrong location.
 
