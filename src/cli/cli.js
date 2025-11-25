@@ -1,11 +1,18 @@
 #!/usr/bin/env node
 import { readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { resolve, extname } from 'node:path';
 import { exit } from 'node:process';
+
+import yaml from 'js-yaml';
 
 import { processConfig } from '../utils/config.js';
 
 const HELP_TEXT = `
+░█░█░█▀█░█▄░▄█░█░░░█▀█░█▀▀░█░█░
+░░█░░█▀█░█░▀░█░█░░░█░█░█░░░█▀▄░
+░░▀░░▀░▀░▀░░░▀░▀▀▀░▀▀▀░▀▀▀░▀░▀░
+
+Usage:
 yamlock <command> [options]
 
 Commands:
@@ -25,12 +32,33 @@ function printError(message) {
   console.error(message);
 }
 
-function readJsonFile(filePath) {
-  const content = readFileSync(filePath, 'utf8');
-  return JSON.parse(content);
+function detectFormat(filePath) {
+  const extension = extname(filePath).toLowerCase();
+  if (extension === '.yaml' || extension === '.yml') {
+    return 'yaml';
+  }
+
+  return 'json';
 }
 
-function writeJsonFile(filePath, data) {
+function readConfigFile(filePath) {
+  const content = readFileSync(filePath, 'utf8');
+  const format = detectFormat(filePath);
+
+  if (format === 'yaml') {
+    return { format, data: yaml.load(content) ?? {} };
+  }
+
+  return { format, data: JSON.parse(content) };
+}
+
+function writeConfigFile(filePath, format, data) {
+  if (format === 'yaml') {
+    const serialized = yaml.dump(data, { lineWidth: 120 });
+    writeFileSync(filePath, serialized, 'utf8');
+    return;
+  }
+
   const serialized = JSON.stringify(data, null, 2);
   writeFileSync(filePath, `${serialized}\n`, 'utf8');
 }
@@ -76,7 +104,7 @@ async function main() {
   const absolutePath = resolve(process.cwd(), file);
   let config;
   try {
-    config = readJsonFile(absolutePath);
+    config = readConfigFile(absolutePath);
   } catch (error) {
     printError(`Failed to read config file: ${error.message}`);
     return exit(1);
@@ -84,15 +112,15 @@ async function main() {
 
   try {
     if (command === 'encrypt') {
-      const result = processConfig(config, { mode: 'encrypt', key, algorithm: options.algorithm });
-      writeJsonFile(absolutePath, result);
+      const result = processConfig(config.data, { mode: 'encrypt', key, algorithm: options.algorithm });
+      writeConfigFile(absolutePath, config.format, result);
       print(`Encrypted values in ${file}`);
       return exit(0);
     }
 
     if (command === 'decrypt') {
-      const result = processConfig(config, { mode: 'decrypt', key });
-      writeJsonFile(absolutePath, result);
+      const result = processConfig(config.data, { mode: 'decrypt', key });
+      writeConfigFile(absolutePath, config.format, result);
       print(`Decrypted values in ${file}`);
       return exit(0);
     }

@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. Each step in the execution plan increments the version and should be tagged accordingly.
 
+## [0.0.9] - 2025-11-26
+### Added
+- CLI now auto-detects YAML vs JSON, loads via js-yaml, and writes back preserving the original format.
+- Integration tests covering YAML encrypt/decrypt flows.
+
 ## [0.0.8] - 2025-11-26
 ### Added
 - CLI skeleton capable of encrypting/decrypting JSON files with `--key` and `--algorithm` options.

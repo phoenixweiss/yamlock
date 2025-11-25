@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import yaml from 'js-yaml';
 
 const CLI_PATH = new URL('../../dist/cli/cli.js', import.meta.url).pathname;
 const KEY = 'integration-secret-key';
@@ -17,10 +18,16 @@ function runCli(args, env = {}) {
   return result;
 }
 
-function createTempFile(content) {
+function createTempFile(content, extension = '.json') {
   const dir = mkdtempSync(join(tmpdir(), 'yamlock-'));
-  const filePath = join(dir, `${randomUUID()}.json`);
-  writeFileSync(filePath, JSON.stringify(content, null, 2));
+  const filePath = join(dir, `${randomUUID()}${extension}`);
+
+  if (extension === '.yaml' || extension === '.yml') {
+    writeFileSync(filePath, yaml.dump(content));
+  } else {
+    writeFileSync(filePath, JSON.stringify(content, null, 2));
+  }
+
   return filePath;
 }
 
@@ -42,6 +49,29 @@ test('CLI encrypts and decrypts JSON configs', () => {
   assert.equal(decryptResult.status, 0, decryptResult.stderr);
 
   const finalContent = JSON.parse(readFileSync(filePath, 'utf8'));
+  assert.deepEqual(finalContent, input);
+});
+
+test('CLI encrypts and decrypts YAML configs', () => {
+  const input = {
+    services: {
+      api: {
+        token: 'secret-token'
+      }
+    }
+  };
+
+  const filePath = createTempFile(input, '.yaml');
+  const encryptResult = runCli(['encrypt', filePath, '--key', KEY]);
+  assert.equal(encryptResult.status, 0, encryptResult.stderr);
+
+  const afterEncrypt = yaml.load(readFileSync(filePath, 'utf8'));
+  assert.notEqual(afterEncrypt.services.api.token, input.services.api.token);
+
+  const decryptResult = runCli(['decrypt', filePath, '--key', KEY]);
+  assert.equal(decryptResult.status, 0, decryptResult.stderr);
+
+  const finalContent = yaml.load(readFileSync(filePath, 'utf8'));
   assert.deepEqual(finalContent, input);
 });
 
