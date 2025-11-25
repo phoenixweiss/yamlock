@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. Each step in the execution plan increments the version and should be tagged accordingly.
 
+## [0.1.1] - 2025-11-26
+### Added
+- Key rotation guide under `docs/key-rotation.md` and README link.
+- Documented CLI exit codes and reference to the example script.
+
 ## [0.1.0] - 2025-11-26
 ### Added
 - Example script under `examples/basic.js` demonstrating encrypt/decrypt flows.

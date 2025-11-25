@@ -74,6 +74,10 @@ yl|<algorithm>|<salt_base64>|<iv_base64>|<data_base64>
 
 where the salt is derived from the full field path. Moving or renaming the field invalidates the salt, preventing accidental decryption in the wrong location.
 
+### Key rotation
+
+See [docs/key-rotation.md](docs/key-rotation.md) for a step-by-step guide to rotating `YAMLOCK_KEY` without losing data.
+
 ## Project structure
 
 ```txt
@@ -101,6 +105,10 @@ Each of those projects solves secure config storage differently, yet none fit my
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development workflow, coding standards, and release instructions.
+
+## Exit codes
+
+`yamlock` returns `0` when encryption/decryption completes successfully and `1` on validation or runtime errors (missing keys, malformed payloads, failed file reads). Use these exit codes to gate CI jobs or deployment steps.
 
 ## License
 
