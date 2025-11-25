@@ -17,8 +17,9 @@ Value-level encryption for YAML and JSON configuration files. The name **yamlock
 
 - Package metadata, linting config, and MIT license are in place.
 - Core crypto helpers (`encryptValue`, `decryptValue`, and supporting utils) work with per-field salts and have unit tests.
+- `processConfig` can walk nested objects/arrays and apply encryption/decryption to every string value.
 - Directory structure for source, CLI, tests, and examples exists.
-- CLI binary is still a stub that only prints a placeholder message; config traversal and file IO are not implemented yet.
+- CLI binary is still a stub; YAML/JSON loading and file IO are not implemented yet.
 
 ## Working locally
 
@@ -28,7 +29,8 @@ Value-level encryption for YAML and JSON configuration files. The name **yamlock
 
 ## Available scripts
 
-- `yarn build` — copies the current `src` tree into `dist`.
+- `yarn build` — copies the current `src` tree into `dist` (temporary until a real build pipeline appears).
+- `yarn prepare` — invokes `yarn build` automatically when installing from git.
 - `yarn test` — runs Node built-in test runner.
 - `yarn lint` — executes ESLint with the provided config.
 
@@ -37,11 +39,12 @@ Value-level encryption for YAML and JSON configuration files. The name **yamlock
 ```txt
 yamlock/
 ├── src/            # Source files (API, CLI, utilities)
-├── bin/            # Published executables (CLI entry point)
+├── dist/           # Build output created by `yarn build`
+├── bin/            # CLI entry point (currently a stub)
 ├── test/           # Unit and integration suites
 ├── examples/       # Usage demos (TBD)
-├── README.md       # This file
-└── LICENSE         # MIT License
+├── CHANGELOG.md    # Step-by-step release history
+└── README.md / LICENSE
 ```
 
 ## Inspiration and motivation
