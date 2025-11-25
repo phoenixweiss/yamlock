@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. Each step in the execution plan increments the version and should be tagged accordingly.
 
+## [0.0.7] - 2025-11-26
+### Added
+- Public API exports for `encryptValue`, `decryptValue`, `processConfig`, and `getSupportedAlgorithms`.
+- Unit tests ensuring the API surface is available and round-trips data correctly.
+
 ## [0.0.6] - 2025-11-25
 ### Added
 - `processConfig` helper to walk objects/arrays and encrypt or decrypt every string value based on field paths.

@@ -1,7 +1,4 @@
-/**
- * yamlock public API placeholder.
- * Detailed encryption/decryption helpers arrive in later steps.
- */
-export function notImplementedYet() {
-  throw new Error('yamlock core has not been implemented yet.');
-}
+export { encryptValue } from './crypto/encrypt.js';
+export { decryptValue } from './crypto/decrypt.js';
+export { processConfig } from './utils/config.js';
+export { listSupportedAlgorithms as getSupportedAlgorithms } from './crypto/utils.js';
