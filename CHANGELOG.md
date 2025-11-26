@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. Each step in the execution plan increments the version and should be tagged accordingly.
 
+## [0.2.0] - 2025-11-26
+### Added
+- Algorithm presets with override support (e.g., `chacha20-poly1305` with auth tags, configurable key/IV lengths).
+- API support for passing algorithm options through `encryptValue`, `decryptValue`, and `processConfig`.
+- Additional unit coverage for presets and algorithm-aware config processing.
+
 ## [0.1.2] - 2025-11-26
 ### Fixed
 - CLI binary now falls back to the source entry during development, ensuring `yamlock` works when installed globally or run via `node bin/yamlock`.

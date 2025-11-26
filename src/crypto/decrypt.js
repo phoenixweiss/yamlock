@@ -3,25 +3,37 @@ import { createDecipheriv } from 'node:crypto';
 import {
   decodeFieldPathSalt,
   deriveKey,
-  ensureAlgorithm,
   isYamlockPayload,
-  parsePayload
+  parsePayload,
+  resolveAlgorithmOptions
 } from './utils.js';
+
+function resolveDecryptOptions(payloadAlgorithm, overrides) {
+  if (typeof overrides === 'string' || overrides === undefined) {
+    return resolveAlgorithmOptions({ algorithm: payloadAlgorithm });
+  }
+
+  return resolveAlgorithmOptions({
+    ...overrides,
+    algorithm: payloadAlgorithm
+  });
+}
 
 /**
  * Decrypts a yamlock payload for the provided field path.
  * @param {string} encryptedValue
  * @param {string|Buffer} key
  * @param {string} fieldPath
+ * @param {string|object} [algorithmOptions]
  * @returns {string}
  */
-export function decryptValue(encryptedValue, key, fieldPath) {
+export function decryptValue(encryptedValue, key, fieldPath, algorithmOptions) {
   if (!isYamlockPayload(encryptedValue)) {
     throw new Error('decryptValue expects a yamlock-formatted payload.');
   }
 
   const payload = parsePayload(encryptedValue);
-  const normalizedAlgorithm = ensureAlgorithm(payload.algorithm);
+  const resolvedOptions = resolveDecryptOptions(payload.algorithm, algorithmOptions);
   const saltFieldPath = decodeFieldPathSalt(payload.salt);
 
   if (!fieldPath) {
@@ -32,9 +44,27 @@ export function decryptValue(encryptedValue, key, fieldPath) {
     throw new Error('Field path does not match the encrypted payload.');
   }
 
-  const derivedKey = deriveKey(key, normalizedAlgorithm);
-  const decipher = createDecipheriv(normalizedAlgorithm, derivedKey, payload.iv);
-  const decrypted = Buffer.concat([decipher.update(payload.data), decipher.final()]);
+  const derivedKey = deriveKey(key, resolvedOptions);
+  let ciphertext = payload.data;
+  let authTag;
+  if (resolvedOptions.authTagLength) {
+    if (ciphertext.length < resolvedOptions.authTagLength) {
+      throw new Error('Encrypted payload is missing an authentication tag.');
+    }
+    authTag = ciphertext.subarray(ciphertext.length - resolvedOptions.authTagLength);
+    ciphertext = ciphertext.subarray(0, ciphertext.length - resolvedOptions.authTagLength);
+  }
+
+  const decipherOptions = resolvedOptions.authTagLength ? { authTagLength: resolvedOptions.authTagLength } : undefined;
+  const decipher = createDecipheriv(resolvedOptions.algorithm, derivedKey, payload.iv, decipherOptions);
+  if (authTag) {
+    if (typeof decipher.setAuthTag !== 'function') {
+      throw new Error(`Algorithm ${resolvedOptions.algorithm} requires auth tags but setAuthTag is unavailable.`);
+    }
+    decipher.setAuthTag(authTag);
+  }
+
+  const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
 
   return decrypted.toString('utf8');
 }

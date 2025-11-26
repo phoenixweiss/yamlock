@@ -13,11 +13,12 @@ const MODES = {
  * @param {Object} options
  * @param {'encrypt'|'decrypt'} options.mode
  * @param {string|Buffer} options.key
- * @param {string} [options.algorithm]
+ * @param {string|object} [options.algorithm]
+ * @param {object} [options.algorithmOptions]
  * @param {Array<string|number>} [options.parentPath]
  * @returns {Object|Array}
  */
-export function processConfig(node, { mode, key, algorithm, parentPath = [] }) {
+export function processConfig(node, { mode, key, algorithm, algorithmOptions, parentPath = [] }) {
   if (typeof node !== 'object' || node === null) {
     throw new Error('processConfig expects a non-null object or array.');
   }
@@ -28,6 +29,7 @@ export function processConfig(node, { mode, key, algorithm, parentPath = [] }) {
 
   const isArrayNode = Array.isArray(node);
   const result = isArrayNode ? [] : {};
+  const cryptoOptions = algorithmOptions ?? algorithm;
 
   Object.entries(node).forEach(([rawKey, value]) => {
     const segment = isArrayNode ? Number(rawKey) : rawKey;
@@ -38,7 +40,8 @@ export function processConfig(node, { mode, key, algorithm, parentPath = [] }) {
       result[targetKey] = processConfig(value, {
         mode,
         key,
-        algorithm,
+        algorithm: cryptoOptions,
+        algorithmOptions: cryptoOptions,
         parentPath: [...parentPath, segment]
       });
       return;
@@ -50,9 +53,9 @@ export function processConfig(node, { mode, key, algorithm, parentPath = [] }) {
     }
 
     if (mode === MODES.ENCRYPT) {
-      result[targetKey] = encryptValue(value, key, currentPath, algorithm);
+      result[targetKey] = encryptValue(value, key, currentPath, cryptoOptions);
     } else {
-      result[targetKey] = decryptValue(value, key, currentPath);
+      result[targetKey] = decryptValue(value, key, currentPath, cryptoOptions);
     }
   });
 

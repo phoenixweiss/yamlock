@@ -6,6 +6,12 @@ import { parsePayload } from '../../src/crypto/utils.js';
 
 const KEY = 'unit-test-secret-key';
 const FIELD_PATH = 'services.db.password';
+const ALGORITHMS = [
+  { name: 'aes-128-cbc', ivLength: 16 },
+  { name: 'aes-192-cbc', ivLength: 16 },
+  { name: 'aes-256-cbc', ivLength: 16 },
+  { name: 'chacha20-poly1305', ivLength: 12 }
+];
 
 test('encryptValue returns a yamlock payload with encoded salt', () => {
   const encrypted = encryptValue('swordfish', KEY, FIELD_PATH);
@@ -28,4 +34,23 @@ test('encryptValue uses a different IV for each call', () => {
 test('encryptValue enforces string inputs and supported algorithms', () => {
   assert.throws(() => encryptValue(123, KEY, FIELD_PATH), /expects the value to be a string/i);
   assert.throws(() => encryptValue('value', KEY, FIELD_PATH, 'non-existent-cipher'), /Unsupported algorithm/i);
+});
+
+test('encryptValue supports algorithm option overrides', () => {
+  const encrypted = encryptValue('override', KEY, FIELD_PATH, {
+    algorithm: 'chacha20-poly1305'
+  });
+  const payload = parsePayload(encrypted);
+
+  assert.equal(payload.algorithm, 'chacha20-poly1305');
+  assert.equal(payload.iv.byteLength, 12);
+});
+ALGORITHMS.forEach(({ name, ivLength }) => {
+  test(`encryptValue encodes payload metadata for ${name}`, () => {
+    const encrypted = encryptValue('value', KEY, FIELD_PATH, { algorithm: name });
+    const payload = parsePayload(encrypted);
+
+    assert.equal(payload.algorithm, name);
+    assert.equal(payload.iv.byteLength, ivLength);
+  });
 });

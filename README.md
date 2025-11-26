@@ -66,6 +66,49 @@ const unlocked = processConfig(locked, { mode: 'decrypt', key: process.env.YAMLO
 
 See `examples/basic.js` for a runnable end-to-end script (`node examples/basic.js`).
 
+### Algorithm customization
+
+Each function accepts either a cipher name or an options object:
+
+```js
+const encrypted = encryptValue('swordfish', KEY, 'db.password', {
+  algorithm: 'chacha20-poly1305',
+  ivLength: 12 // override the IV size used during encryption
+});
+
+// When decrypting, the algorithm is inferred from the payload,
+// but you can still override key/IV sizes if the cipher requires it.
+const decrypted = decryptValue(encrypted, KEY, 'db.password', /* optional overrides */);
+
+// processConfig propagates the same options through every nested field.
+const processed = processConfig(
+  { db: { password: 'swordfish' }, api: { token: 'secret' } },
+  {
+    mode: 'encrypt',
+    key: KEY,
+    algorithm: { algorithm: 'aes-192-cbc', ivLength: 24 }
+  }
+);
+
+// Later you can decrypt with the same options:
+const restored = processConfig(processed, {
+  mode: 'decrypt',
+  key: KEY,
+  algorithm: { algorithm: 'aes-192-cbc', ivLength: 24 }
+});
+```
+
+### Supported algorithms
+
+| Algorithm | Type | Notes |
+|-----------|------|-------|
+| `aes-128-cbc` | Block cipher (CBC) | 128-bit keys, 16-byte IV. Works well for backward-compatibility scenarios. |
+| `aes-192-cbc` | Block cipher (CBC) | 192-bit keys, 16-byte IV. Slightly stronger than AES-128 with the same IV requirements. |
+| `aes-256-cbc` (default) | Block cipher (CBC) | 256-bit keys, 16-byte IV. Balanced combination of strength and compatibility. |
+| `chacha20-poly1305` | AEAD stream cipher | 256-bit keys, 12-byte nonce, 16-byte auth tag. Provides built-in integrity/authentication. |
+
+You can also pass any algorithm supported by the current Node.js runtime (`crypto.getCiphers()`), along with custom `keyLength`, `ivLength`, or `authTagLength` overrides. Only the algorithms above are actively tested; additional presets may be added or revised in future releases.
+
 ### Encrypted value format
 
 Every locked string follows the format:

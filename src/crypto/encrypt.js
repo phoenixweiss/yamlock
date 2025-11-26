@@ -1,38 +1,52 @@
 import { createCipheriv } from 'node:crypto';
 
 import {
+  DEFAULT_ALGORITHM,
   deriveKey,
   encodeFieldPathSalt,
-  ensureAlgorithm,
   formatPayload,
-  generateIv
+  generateIv,
+  resolveAlgorithmOptions
 } from './utils.js';
 
-const DEFAULT_ALGORITHM = 'aes-256-cbc';
+function resolveOptions(input) {
+  if (typeof input === 'string' || input === undefined) {
+    return resolveAlgorithmOptions({ algorithm: input ?? DEFAULT_ALGORITHM });
+  }
+  return resolveAlgorithmOptions(input);
+}
 
 /**
  * Encrypts a string value for a specific configuration field path.
  * @param {string} value
  * @param {string|Buffer} key
  * @param {string} fieldPath
- * @param {string} [algorithm=DEFAULT_ALGORITHM]
+ * @param {string|object} [algorithmOptions=DEFAULT_ALGORITHM]
  * @returns {string}
  */
-export function encryptValue(value, key, fieldPath, algorithm = DEFAULT_ALGORITHM) {
+export function encryptValue(value, key, fieldPath, algorithmOptions = DEFAULT_ALGORITHM) {
   if (typeof value !== 'string') {
     throw new Error('encryptValue expects the value to be a string.');
   }
 
-  const normalizedAlgorithm = ensureAlgorithm(algorithm);
-  const derivedKey = deriveKey(key, normalizedAlgorithm);
-  const iv = generateIv(normalizedAlgorithm);
+  const resolvedOptions = resolveOptions(algorithmOptions);
+  const derivedKey = deriveKey(key, resolvedOptions);
+  const iv = generateIv(resolvedOptions);
   const salt = encodeFieldPathSalt(fieldPath);
 
-  const cipher = createCipheriv(normalizedAlgorithm, derivedKey, iv);
-  const encrypted = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
+  const cipherOptions = resolvedOptions.authTagLength ? { authTagLength: resolvedOptions.authTagLength } : undefined;
+  const cipher = createCipheriv(resolvedOptions.algorithm, derivedKey, iv, cipherOptions);
+  let encrypted = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
+  if (resolvedOptions.authTagLength) {
+    if (typeof cipher.getAuthTag !== 'function') {
+      throw new Error(`Algorithm ${resolvedOptions.algorithm} requires auth tags but getAuthTag is unavailable.`);
+    }
+    const authTag = cipher.getAuthTag();
+    encrypted = Buffer.concat([encrypted, authTag]);
+  }
 
   return formatPayload({
-    algorithm: normalizedAlgorithm,
+    algorithm: resolvedOptions.algorithm,
     salt,
     iv,
     data: encrypted
