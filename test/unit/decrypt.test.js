@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 
 import { encryptValue } from '../../src/crypto/encrypt.js';
 import { decryptValue } from '../../src/crypto/decrypt.js';
-
-const KEY = 'unit-test-secret-key';
-const FIELD_PATH = 'services.db.password';
-const ALGORITHMS = ['aes-128-cbc', 'aes-192-cbc', 'aes-256-cbc', 'chacha20-poly1305'];
+import {
+  ALGORITHM_NAMES,
+  TEST_FIELD_PATH as FIELD_PATH,
+  TEST_KEY as KEY
+} from '../fixtures/crypto-fixtures.js';
 
 test('decryptValue returns the original string when metadata matches', () => {
   const payload = encryptValue('swordfish', KEY, FIELD_PATH);
@@ -35,7 +36,7 @@ test('decryptValue supports algorithms with auth tags', () => {
   assert.equal(decrypted, 'poly');
 });
 
-ALGORITHMS.forEach((name) => {
+ALGORITHM_NAMES.forEach((name) => {
   test(`decryptValue round-trips for ${name}`, () => {
     const payload = encryptValue('multi', KEY, FIELD_PATH, { algorithm: name });
     const decrypted = decryptValue(payload, KEY, FIELD_PATH);

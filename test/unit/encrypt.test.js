@@ -3,15 +3,11 @@ import assert from 'node:assert/strict';
 
 import { encryptValue } from '../../src/crypto/encrypt.js';
 import { parsePayload } from '../../src/crypto/utils.js';
-
-const KEY = 'unit-test-secret-key';
-const FIELD_PATH = 'services.db.password';
-const ALGORITHMS = [
-  { name: 'aes-128-cbc', ivLength: 16 },
-  { name: 'aes-192-cbc', ivLength: 16 },
-  { name: 'aes-256-cbc', ivLength: 16 },
-  { name: 'chacha20-poly1305', ivLength: 12 }
-];
+import {
+  ALGORITHM_CASES,
+  TEST_FIELD_PATH as FIELD_PATH,
+  TEST_KEY as KEY
+} from '../fixtures/crypto-fixtures.js';
 
 test('encryptValue returns a yamlock payload with encoded salt', () => {
   const encrypted = encryptValue('swordfish', KEY, FIELD_PATH);
@@ -45,7 +41,7 @@ test('encryptValue supports algorithm option overrides', () => {
   assert.equal(payload.algorithm, 'chacha20-poly1305');
   assert.equal(payload.iv.byteLength, 12);
 });
-ALGORITHMS.forEach(({ name, ivLength }) => {
+ALGORITHM_CASES.forEach(({ name, ivLength }) => {
   test(`encryptValue encodes payload metadata for ${name}`, () => {
     const encrypted = encryptValue('value', KEY, FIELD_PATH, { algorithm: name });
     const payload = parsePayload(encrypted);

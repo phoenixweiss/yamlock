@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file. Each step in the execution plan increments the version and should be tagged accordingly.
 
+## [0.2.1] - 2025-11-26
+### Changed
+- Unified unit tests around shared fixtures/helpers to remove duplication and ensure every supported algorithm is exercised consistently.
+
 ## [0.2.0] - 2025-11-26
 ### Added
 - Algorithm presets with override support (e.g., `chacha20-poly1305` with auth tags, configurable key/IV lengths).
