@@ -54,6 +54,9 @@ yamlock encrypt config.json --key "$YAMLOCK_KEY" --paths "db.password,api.token"
 # Inspect CLI metadata
 yamlock version
 yamlock algorithms
+
+# Generate a random key for YAMLOCK_KEY
+yamlock keygen --length 64 --format base64
 ```
 
 The CLI detects YAML (`.yaml`/`.yml`) and JSON extensions automatically and writes the file back in the same format.
@@ -61,6 +64,7 @@ The CLI detects YAML (`.yaml`/`.yml`) and JSON extensions automatically and writ
 Options of note:
 - `--output <file>` writes the result to a separate file instead of overwriting the input.
 - `--paths <path1,path2>` targets only the specified fields (dot/bracket notation like `db.password` or `users[0].token`).
+- Command `keygen` produces a random key and shows how to store it (shell export or `.env`).
 - Commands `version` and `algorithms` print the installed CLI version and the list of supported ciphers respectively.
 
 ### Node.js API

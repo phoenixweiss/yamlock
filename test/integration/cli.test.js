@@ -156,3 +156,17 @@ test('CLI algorithms command prints supported list', () => {
   assert.ok(result.stdout.includes('Supported algorithms'));
   assert.ok(result.stdout.includes('aes-256-cbc'));
 });
+
+test('CLI keygen outputs base64 key by default', () => {
+  const result = runCli(['keygen']);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Generated key \(base64/);
+  assert.match(result.stdout, /export YAMLOCK_KEY=".+"/);
+});
+
+test('CLI keygen respects length and format overrides', () => {
+  const result = runCli(['keygen', '--length', '16', '--format', 'hex']);
+  assert.equal(result.status, 0, result.stderr);
+  const match = result.stdout.match(/[a-f0-9]{32}/i);
+  assert.ok(match);
+});

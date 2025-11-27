@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. Each step in the execution plan increments the version and should be tagged accordingly.
 
+## [0.2.4] - 2025-11-28
+### Added
+- `yamlock keygen` command generates random keys with configurable length and format, including guidance on storing them.
+- Integration tests covering key generation.
+
+### Changed
+- README documents the key generator usage.
+
 ## [0.2.3] - 2025-11-27
 ### Added
 - `yamlock version` command prints the installed CLI version.
