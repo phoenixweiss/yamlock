@@ -7,7 +7,7 @@ import {
   ALGORITHM_CASES,
   TEST_FIELD_PATH as FIELD_PATH,
   TEST_KEY as KEY
-} from '../fixtures/crypto-fixtures.js';
+} from '../../fixtures/crypto-fixtures.js';
 
 test('encryptValue returns a yamlock payload with encoded salt', () => {
   const encrypted = encryptValue('swordfish', KEY, FIELD_PATH);

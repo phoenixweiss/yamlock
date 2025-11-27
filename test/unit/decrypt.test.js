@@ -7,7 +7,7 @@ import {
   ALGORITHM_NAMES,
   TEST_FIELD_PATH as FIELD_PATH,
   TEST_KEY as KEY
-} from '../fixtures/crypto-fixtures.js';
+} from '../../fixtures/crypto-fixtures.js';
 
 test('decryptValue returns the original string when metadata matches', () => {
   const payload = encryptValue('swordfish', KEY, FIELD_PATH);

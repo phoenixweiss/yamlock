@@ -2,10 +2,15 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve, extname } from 'node:path';
 import { exit } from 'node:process';
+import { createRequire } from 'node:module';
 
 import yaml from 'js-yaml';
 
 import { processConfig } from '../utils/config.js';
+import { listSupportedAlgorithms } from '../crypto/utils.js';
+
+const require = createRequire(import.meta.url);
+const packageJson = require('../../package.json');
 
 const HELP_TEXT = `
 ░█░█░█▀█░█▄░▄█░█░░░█▀█░█▀▀░█░█░
@@ -16,8 +21,10 @@ Usage:
 yamlock <command> [options]
 
 Commands:
-  encrypt <file>   Encrypt string values in the given YAML/JSON file.
-  decrypt <file>   Decrypt string values in the given YAML/JSON file.
+  encrypt <file>       Encrypt string values in the given YAML/JSON file.
+  decrypt <file>       Decrypt string values in the given YAML/JSON file.
+  version              Print the yamlock CLI version.
+  algorithms           Print the list of supported cipher algorithms.
 
 Options:
   -k, --key <value>        Encryption key (or use YAMLOCK_KEY env).
@@ -109,7 +116,25 @@ function parseArgs(argv) {
 export async function runCli(argv = process.argv) {
   const { command, file, options } = parseArgs(argv);
 
-  if (!command || !file) {
+  if (!command) {
+    print(HELP_TEXT.trim());
+    return exit(1);
+  }
+
+  if (command === 'version') {
+    print(`yamlock ${packageJson.version}`);
+    return exit(0);
+  }
+
+  if (command === 'algorithms') {
+    const algorithms = listSupportedAlgorithms();
+    print('Supported algorithms:');
+    algorithms.forEach((name) => print(`- ${name}`));
+    return exit(0);
+  }
+
+  if (!file) {
+    printError('A file path is required for this command.');
     print(HELP_TEXT.trim());
     return exit(1);
   }

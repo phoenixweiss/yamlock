@@ -5,7 +5,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import yaml from 'js-yaml';
+
+const require = createRequire(import.meta.url);
+const packageJson = require('../../package.json');
 
 const CLI_BIN = new URL('../../bin/yamlock', import.meta.url).pathname;
 const KEY = 'integration-secret-key';
@@ -138,4 +142,17 @@ test('CLI writes to a separate file when --output is used', () => {
 
   assert.equal(sourceAfter, originalContent);
   assert.notEqual(outputContent, originalContent);
+});
+
+test('CLI version command prints package version', () => {
+  const result = runCli(['version']);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout.trim(), new RegExp(`^yamlock ${packageJson.version}`));
+});
+
+test('CLI algorithms command prints supported list', () => {
+  const result = runCli(['algorithms']);
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(result.stdout.includes('Supported algorithms'));
+  assert.ok(result.stdout.includes('aes-256-cbc'));
 });

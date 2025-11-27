@@ -7,7 +7,7 @@ import {
   nestedConfig,
   sampleConfig,
   TEST_KEY as KEY
-} from '../fixtures/crypto-fixtures.js';
+} from '../../fixtures/crypto-fixtures.js';
 
 test('processConfig encrypts nested string values across objects and arrays', () => {
   const input = nestedConfig();

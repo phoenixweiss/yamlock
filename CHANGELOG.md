@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. Each step in the execution plan increments the version and should be tagged accordingly.
 
+## [0.2.3] - 2025-11-27
+### Added
+- `yamlock version` command prints the installed CLI version.
+- `yamlock algorithms` lists all ciphers available in the current runtime.
+- Integration tests cover the new commands.
+
+### Changed
+- CLI help and README highlight the new commands.
+- Moved shared fixtures under `fixtures/` so the test runner skips them as standalone suites.
+
 ## [0.2.2] - 2025-11-27
 ### Added
 - CLI support for `--paths` (partial encryption/decryption) and `--output` (separate destination files).
