@@ -1,6 +1,6 @@
 {
   "name": "yamlock",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "author": "PAVEL TKACHEV (phoenixweiss) <mail@phoenixweiss.me>",
   "description": "Value-level encryption for YAML/JSON configuration files with CLI + Node.js APIs.",
   "license": "MIT",

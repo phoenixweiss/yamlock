@@ -58,3 +58,39 @@ ALGORITHM_NAMES.forEach((name) => {
     assert.deepEqual(decrypted, input);
   });
 });
+
+test('processConfig only processes specified paths', () => {
+  const input = {
+    db: { user: 'app', password: 'secret' },
+    api: { token: 'abc', url: 'https://example.com' }
+  };
+
+  const encrypted = processConfig(input, {
+    mode: 'encrypt',
+    key: KEY,
+    paths: ['db.password', 'api.token']
+  });
+
+  assert.equal(encrypted.db.user, input.db.user);
+  assert.equal(encrypted.api.url, input.api.url);
+  assert.notEqual(encrypted.db.password, input.db.password);
+  assert.notEqual(encrypted.api.token, input.api.token);
+
+  const decrypted = processConfig(encrypted, {
+    mode: 'decrypt',
+    key: KEY,
+    paths: ['db.password', 'api.token']
+  });
+
+  assert.deepEqual(decrypted, input);
+});
+
+test('processConfig ignores non-existent paths without modifying data', () => {
+  const input = sampleConfig('value');
+  const encrypted = processConfig(input, {
+    mode: 'encrypt',
+    key: KEY,
+    paths: ['non.existent.path']
+  });
+  assert.deepEqual(encrypted, input);
+});

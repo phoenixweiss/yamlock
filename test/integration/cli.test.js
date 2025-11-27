@@ -171,3 +171,59 @@ test('CLI keygen respects length and format overrides', () => {
   const match = result.stdout.match(/[a-f0-9]{32}/i);
   assert.ok(match);
 });
+
+test('CLI encrypts and decrypts using a custom algorithm', () => {
+  const input = {
+    db: {
+      password: 'custom'
+    }
+  };
+
+  const filePath = createTempFile(input);
+  const encryptResult = runCli([
+    'encrypt',
+    filePath,
+    '--key',
+    KEY,
+    '--algorithm',
+    'chacha20-poly1305'
+  ]);
+  assert.equal(encryptResult.status, 0, encryptResult.stderr);
+
+  const decryptResult = runCli([
+    'decrypt',
+    filePath,
+    '--key',
+    KEY,
+    '--algorithm',
+    'chacha20-poly1305'
+  ]);
+  assert.equal(decryptResult.status, 0, decryptResult.stderr);
+
+  const finalContent = JSON.parse(readFileSync(filePath, 'utf8'));
+  assert.deepEqual(finalContent, input);
+});
+
+test('CLI decrypts only specified paths when --paths is provided', () => {
+  const input = {
+    db: { password: 'secret', host: 'localhost' },
+    api: { token: 'abc', url: 'https://example.com' }
+  };
+
+  const filePath = createTempFile(input);
+  runCli(['encrypt', filePath, '--key', KEY, '--paths', 'db.password,api.token']);
+
+  const decryptResult = runCli([
+    'decrypt',
+    filePath,
+    '--key',
+    KEY,
+    '--paths',
+    'db.password'
+  ]);
+  assert.equal(decryptResult.status, 0, decryptResult.stderr);
+
+  const afterDecrypt = JSON.parse(readFileSync(filePath, 'utf8'));
+  assert.equal(afterDecrypt.db.password, input.db.password);
+  assert.notEqual(afterDecrypt.api.token, input.api.token);
+});

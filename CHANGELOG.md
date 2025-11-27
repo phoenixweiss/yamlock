@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. Each step in the execution plan increments the version and should be tagged accordingly.
 
+## [0.2.6] - 2025-11-28
+### Added
+- Unit tests covering `processConfig` path filters and CLI integration tests for custom algorithms/decrypt paths.
+
+### Changed
+- README/CLI behavior unchanged.
+
 ## [0.2.5] - 2025-11-28
 ### Added
 - `yamlock algorithms` now distinguishes between tested presets and other OpenSSL-provided ciphers.
