@@ -150,11 +150,12 @@ test('CLI version command prints package version', () => {
   assert.match(result.stdout.trim(), new RegExp(`^yamlock ${packageJson.version}`));
 });
 
-test('CLI algorithms command prints supported list', () => {
+test('CLI algorithms command separates tested vs available lists', () => {
   const result = runCli(['algorithms']);
   assert.equal(result.status, 0, result.stderr);
-  assert.ok(result.stdout.includes('Supported algorithms'));
+  assert.ok(result.stdout.includes('Tested algorithms'));
   assert.ok(result.stdout.includes('aes-256-cbc'));
+  assert.ok(result.stdout.includes('Additional algorithms'));
 });
 
 test('CLI keygen outputs base64 key by default', () => {

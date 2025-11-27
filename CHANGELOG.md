@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. Each step in the execution plan increments the version and should be tagged accordingly.
 
+## [0.2.5] - 2025-11-28
+### Added
+- `yamlock algorithms` now distinguishes between tested presets and other OpenSSL-provided ciphers.
+- Integration tests updated to confirm the new output format.
+
+### Changed
+- README notes that the algorithms command shows both tested and additional cipher lists.
+
 ## [0.2.4] - 2025-11-28
 ### Added
 - `yamlock keygen` command generates random keys with configurable length and format, including guidance on storing them.

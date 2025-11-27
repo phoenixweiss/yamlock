@@ -8,7 +8,7 @@ import { randomBytes } from 'node:crypto';
 import yaml from 'js-yaml';
 
 import { processConfig } from '../utils/config.js';
-import { listSupportedAlgorithms } from '../crypto/utils.js';
+import { listSupportedAlgorithms, TESTED_ALGORITHMS } from '../crypto/utils.js';
 
 const require = createRequire(import.meta.url);
 const packageJson = require('../../package.json');
@@ -161,8 +161,18 @@ export async function runCli(argv = process.argv) {
 
   if (command === 'algorithms') {
     const algorithms = listSupportedAlgorithms();
-    print('Supported algorithms:');
-    algorithms.forEach((name) => print(`- ${name}`));
+    const tested = TESTED_ALGORITHMS.slice().sort();
+    const testedSet = new Set(tested);
+    const additional = algorithms.filter((name) => !testedSet.has(name));
+
+    print('Tested algorithms (covered by yamlock fixtures):');
+    tested.forEach((name) => print(`- ${name}`));
+
+    if (additional.length > 0) {
+      print('\nAdditional algorithms available in this runtime:');
+      additional.forEach((name) => print(`- ${name}`));
+      print('\nUse at your own risk; these ciphers are not part of the official test matrix yet.');
+    }
     return exit(0);
   }
 

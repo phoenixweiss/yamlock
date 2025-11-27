@@ -65,7 +65,8 @@ Options of note:
 - `--output <file>` writes the result to a separate file instead of overwriting the input.
 - `--paths <path1,path2>` targets only the specified fields (dot/bracket notation like `db.password` or `users[0].token`).
 - Command `keygen` produces a random key and shows how to store it (shell export or `.env`).
-- Commands `version` and `algorithms` print the installed CLI version and the list of supported ciphers respectively.
+- Command `algorithms` prints two lists: tested presets (covered by yamlock) and additional ciphers available from the runtime.
+- Command `version` prints the installed CLI version.
 
 ### Node.js API
 

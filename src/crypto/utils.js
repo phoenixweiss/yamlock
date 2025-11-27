@@ -9,6 +9,7 @@ export const ALGORITHM_PRESETS = {
   'aes-128-cbc': { keyLength: 16, ivLength: 16, authTagLength: 0 },
   'chacha20-poly1305': { keyLength: 32, ivLength: 12, authTagLength: 16 }
 };
+export const TESTED_ALGORITHMS = Object.keys(ALGORITHM_PRESETS);
 
 /**
  * Returns the sorted list of cipher algorithms supported by the current runtime.
