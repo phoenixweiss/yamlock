@@ -22,6 +22,8 @@ Commands:
 Options:
   -k, --key <value>        Encryption key (or use YAMLOCK_KEY env).
   -a, --algorithm <value>  Cipher algorithm (default: aes-256-cbc).
+  -o, --output <file>      Write the result to a different file (otherwise overwrites the input file).
+  -p, --paths <p1,p2>      Comma-separated list of field paths to process (dot/bracket notation).
 `;
 
 function print(message) {
@@ -63,6 +65,17 @@ function writeConfigFile(filePath, format, data) {
   writeFileSync(filePath, `${serialized}\n`, 'utf8');
 }
 
+function parsePaths(value) {
+  if (!value) {
+    return [];
+  }
+
+  return String(value)
+    .split(',')
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+}
+
 function parseArgs(argv) {
   const args = argv.slice(2);
   const result = {
@@ -80,6 +93,12 @@ function parseArgs(argv) {
       i += 1;
     } else if (arg === '-a' || arg === '--algorithm') {
       result.options.algorithm = next;
+      i += 1;
+    } else if (arg === '-o' || arg === '--output') {
+      result.options.output = next;
+      i += 1;
+    } else if (arg === '-p' || arg === '--paths') {
+      result.options.paths = parsePaths(next);
       i += 1;
     }
   }
@@ -110,18 +129,32 @@ export async function runCli(argv = process.argv) {
     return exit(1);
   }
 
+  const outputPath = options.output
+    ? resolve(process.cwd(), options.output)
+    : absolutePath;
+
   try {
     if (command === 'encrypt') {
-      const result = processConfig(config.data, { mode: 'encrypt', key, algorithm: options.algorithm });
-      writeConfigFile(absolutePath, config.format, result);
-      print(`Encrypted values in ${file}`);
+      const result = processConfig(config.data, {
+        mode: 'encrypt',
+        key,
+        algorithm: options.algorithm,
+        paths: options.paths
+      });
+      writeConfigFile(outputPath, config.format, result);
+      print(`Encrypted values in ${outputPath === absolutePath ? file : options.output}`);
       return exit(0);
     }
 
     if (command === 'decrypt') {
-      const result = processConfig(config.data, { mode: 'decrypt', key });
-      writeConfigFile(absolutePath, config.format, result);
-      print(`Decrypted values in ${file}`);
+      const result = processConfig(config.data, {
+        mode: 'decrypt',
+        key,
+        algorithm: options.algorithm,
+        paths: options.paths
+      });
+      writeConfigFile(outputPath, config.format, result);
+      print(`Decrypted values in ${outputPath === absolutePath ? file : options.output}`);
       return exit(0);
     }
 

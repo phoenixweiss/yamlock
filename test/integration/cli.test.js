@@ -81,3 +81,61 @@ test('CLI fails when key is missing', () => {
   assert.equal(result.status, 1);
   assert.match(result.stderr, /Encryption key is required/);
 });
+
+test('CLI encrypts only specified paths when --paths is provided', () => {
+  const input = {
+    db: {
+      user: 'app',
+      password: 'secret'
+    },
+    api: {
+      token: 'abc123',
+      url: 'https://example.com'
+    }
+  };
+
+  const filePath = createTempFile(input);
+  const encryptResult = runCli([
+    'encrypt',
+    filePath,
+    '--key',
+    KEY,
+    '--paths',
+    'db.password,api.token'
+  ]);
+  assert.equal(encryptResult.status, 0, encryptResult.stderr);
+
+  const afterEncrypt = JSON.parse(readFileSync(filePath, 'utf8'));
+  assert.equal(afterEncrypt.db.user, input.db.user);
+  assert.equal(afterEncrypt.api.url, input.api.url);
+  assert.notEqual(afterEncrypt.db.password, input.db.password);
+  assert.notEqual(afterEncrypt.api.token, input.api.token);
+});
+
+test('CLI writes to a separate file when --output is used', () => {
+  const input = {
+    db: {
+      password: 'secret'
+    }
+  };
+
+  const filePath = createTempFile(input);
+  const outputPath = `${filePath}.enc`;
+  const originalContent = readFileSync(filePath, 'utf8');
+
+  const encryptResult = runCli([
+    'encrypt',
+    filePath,
+    '--key',
+    KEY,
+    '--output',
+    outputPath
+  ]);
+  assert.equal(encryptResult.status, 0, encryptResult.stderr);
+
+  const sourceAfter = readFileSync(filePath, 'utf8');
+  const outputContent = readFileSync(outputPath, 'utf8');
+
+  assert.equal(sourceAfter, originalContent);
+  assert.notEqual(outputContent, originalContent);
+});

@@ -15,18 +15,33 @@ const MODES = {
  * @param {string|Buffer} options.key
  * @param {string|object} [options.algorithm]
  * @param {object} [options.algorithmOptions]
+ * @param {string[]} [options.paths]
  * @param {Array<string|number>} [options.parentPath]
  * @returns {Object|Array}
  */
-export function processConfig(node, { mode, key, algorithm, algorithmOptions, parentPath = [] }) {
+export function processConfig(node, options) {
   if (typeof node !== 'object' || node === null) {
     throw new Error('processConfig expects a non-null object or array.');
   }
 
+  const mode = options.mode;
   if (mode !== MODES.ENCRYPT && mode !== MODES.DECRYPT) {
     throw new Error(`Unknown processConfig mode: ${mode}`);
   }
 
+  const normalizedPaths = Array.isArray(options.paths) && options.paths.length > 0
+    ? new Set(options.paths.map((path) => String(path).trim()).filter(Boolean))
+    : null;
+
+  return traverseConfig(node, {
+    ...options,
+    mode,
+    parentPath: options.parentPath ?? [],
+    normalizedPaths
+  });
+}
+
+function traverseConfig(node, { mode, key, algorithm, algorithmOptions, parentPath, normalizedPaths }) {
   const isArrayNode = Array.isArray(node);
   const result = isArrayNode ? [] : {};
   const cryptoOptions = algorithmOptions ?? algorithm;
@@ -37,17 +52,24 @@ export function processConfig(node, { mode, key, algorithm, algorithmOptions, pa
     const currentPath = buildPath(parentPath, segment);
 
     if (value !== null && typeof value === 'object') {
-      result[targetKey] = processConfig(value, {
+      result[targetKey] = traverseConfig(value, {
         mode,
         key,
         algorithm: cryptoOptions,
         algorithmOptions: cryptoOptions,
-        parentPath: [...parentPath, segment]
+        parentPath: [...parentPath, segment],
+        normalizedPaths
       });
       return;
     }
 
     if (typeof value !== 'string') {
+      result[targetKey] = value;
+      return;
+    }
+
+    const shouldProcess = !normalizedPaths || normalizedPaths.has(currentPath);
+    if (!shouldProcess) {
       result[targetKey] = value;
       return;
     }

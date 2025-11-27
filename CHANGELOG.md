@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. Each step in the execution plan increments the version and should be tagged accordingly.
 
+## [0.2.2] - 2025-11-27
+### Added
+- CLI support for `--paths` (partial encryption/decryption) and `--output` (separate destination files).
+- `processConfig` now accepts targeted path lists so API/CLI share the same behavior.
+
+### Changed
+- README documents the new CLI options with examples.
+
 ## [0.2.1] - 2025-11-26
 ### Changed
 - Unified unit tests around shared fixtures/helpers to remove duplication and ensure every supported algorithm is exercised consistently.

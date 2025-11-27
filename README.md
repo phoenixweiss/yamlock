@@ -47,9 +47,16 @@ YAMLOCK_KEY="super-secret" yamlock encrypt config.yaml
 
 # Decrypt values in place using explicit key/algorithm flags
 yamlock decrypt settings.json --key "super-secret" --algorithm aes-256-cbc
+
+# Encrypt only selected fields into a new file
+yamlock encrypt config.json --key "$YAMLOCK_KEY" --paths "db.password,api.token" --output config.secure.json
 ```
 
 The CLI detects YAML (`.yaml`/`.yml`) and JSON extensions automatically and writes the file back in the same format.
+
+Options of note:
+- `--output <file>` writes the result to a separate file instead of overwriting the input.
+- `--paths <path1,path2>` targets only the specified fields (dot/bracket notation like `db.password` or `users[0].token`).
 
 ### Node.js API
 
