@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. Each step in the execution plan increments the version and should be tagged accordingly.
 
+## [0.2.9] - 2025-12-01
+### Added
+- CLI `--dry-run` flag prints the diff without touching files.
+- Structured error codes (e.g., `[yamlock:ERR_MISSING_KEY]`) for machine-readable failure handling.
+- Integration tests covering dry-run and the new error format.
+
+### Changed
+- README documents the `--dry-run` flag and behavior.
+
 ## [0.2.8] - 2025-12-01
 ### Added
 - Advanced usage docs: selective path tips, CI/CD workflow example (`examples/docs/ci-cd.md`), and an expanded key-rotation guide with scripting advice.

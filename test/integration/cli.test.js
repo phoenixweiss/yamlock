@@ -83,7 +83,7 @@ test('CLI fails when key is missing', () => {
   const filePath = createTempFile({ value: 'secret' });
   const result = runCli(['encrypt', filePath]);
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /Encryption key is required/);
+  assert.match(result.stderr, /\[yamlock:ERR_MISSING_KEY]/);
 });
 
 test('CLI encrypts only specified paths when --paths is provided', () => {
@@ -142,6 +142,19 @@ test('CLI writes to a separate file when --output is used', () => {
 
   assert.equal(sourceAfter, originalContent);
   assert.notEqual(outputContent, originalContent);
+});
+
+test('CLI dry-run prints diff without modifying files', () => {
+  const input = { value: 'secret' };
+  const filePath = createTempFile(input);
+
+  const result = runCli(['encrypt', filePath, '--key', KEY, '--dry-run']);
+  assert.equal(result.status, 0, result.stderr);
+  const contentAfter = JSON.parse(readFileSync(filePath, 'utf8'));
+  assert.deepEqual(contentAfter, input);
+  assert.ok(result.stdout.includes('DRY-RUN'));
+  assert.ok(result.stdout.includes('--- original'));
+  assert.ok(result.stdout.includes('+++ result'));
 });
 
 test('CLI version command prints package version', () => {

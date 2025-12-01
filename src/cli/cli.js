@@ -37,6 +37,7 @@ Options:
   -a, --algorithm <value>  Cipher algorithm (default: aes-256-cbc).
   -o, --output <file>      Write the result to a different file (otherwise overwrites the input file).
   -p, --paths <p1,p2>      Comma-separated list of field paths to process (dot/bracket notation).
+  -d, --dry-run             Show the diff without modifying files.
   --length <bytes>         (keygen) Number of random bytes to generate (default: 32).
   --format <hex|base64>    (keygen) Output format (default: base64).
 `;
@@ -64,21 +65,22 @@ function readConfigFile(filePath) {
   const format = detectFormat(filePath);
 
   if (format === 'yaml') {
-    return { format, data: yaml.load(content) ?? {} };
+    return { format, data: yaml.load(content) ?? {}, raw: content };
   }
 
-  return { format, data: JSON.parse(content) };
+  return { format, data: JSON.parse(content), raw: content };
 }
 
-function writeConfigFile(filePath, format, data) {
+function serializeConfig(format, data) {
   if (format === 'yaml') {
-    const serialized = yaml.dump(data, { lineWidth: 120 });
-    writeFileSync(filePath, serialized, 'utf8');
-    return;
+    return yaml.dump(data, { lineWidth: 120 });
   }
 
-  const serialized = JSON.stringify(data, null, 2);
-  writeFileSync(filePath, `${serialized}\n`, 'utf8');
+  return `${JSON.stringify(data, null, 2)}\n`;
+}
+
+function writeConfigFile(filePath, serialized) {
+  writeFileSync(filePath, serialized, 'utf8');
 }
 
 function parsePaths(value) {
@@ -97,7 +99,7 @@ function parseArgs(argv) {
   const result = {
     command: args[0],
     file: undefined,
-    options: {}
+    options: { dryRun: false }
   };
 
   let index = 1;
@@ -131,7 +133,13 @@ function parseArgs(argv) {
     } else if (arg === '--format') {
       result.options.format = next;
       i += 1;
+    } else if (arg === '-d' || arg === '--dry-run') {
+      result.options.dryRun = true;
     }
+  }
+
+  if (result.options.dryRun && result.command && !result.file && !['version', 'algorithms', 'keygen'].includes(result.command)) {
+    // dry-run without file is invalid, but we'll let later validation handle file requirement
   }
 
   return result;
@@ -144,6 +152,30 @@ function generateRandomKey(length, format) {
     return buffer.toString('hex');
   }
   return buffer.toString('base64');
+}
+
+function fail(code, message) {
+  printError(`[yamlock:${code}] ${message}`);
+  return exit(1);
+}
+
+function handleWrite({ dryRun, file, outputPath, format, originalRaw, data, operation }) {
+  const serialized = serializeConfig(format, data);
+  if (dryRun) {
+    print(`DRY-RUN (${operation}) ${file}`);
+    print('--- original');
+    print((originalRaw ?? '').trimEnd());
+    print('+++ result');
+    print(serialized.trimEnd());
+    if (outputPath !== file) {
+      print(`(would write to ${outputPath})`);
+    }
+    print('No files were modified.');
+    return;
+  }
+
+  writeConfigFile(outputPath, serialized);
+  print(`${operation === 'encrypt' ? 'Encrypted' : 'Decrypted'} values in ${outputPath}`);
 }
 
 export async function runCli(argv = process.argv) {
@@ -181,13 +213,11 @@ export async function runCli(argv = process.argv) {
     const normalizedFormat = (options.format ?? 'base64').toLowerCase();
 
     if (!Number.isFinite(desiredLength) || desiredLength <= 0) {
-      printError('Key length must be a positive number.');
-      return exit(1);
+      return fail('ERR_INVALID_LENGTH', 'Key length must be a positive number.');
     }
 
     if (!['base64', 'hex'].includes(normalizedFormat)) {
-      printError('Key format must be either "base64" or "hex".');
-      return exit(1);
+      return fail('ERR_INVALID_FORMAT', 'Key format must be either "base64" or "hex".');
     }
 
     const keyValue = generateRandomKey(desiredLength, normalizedFormat);
@@ -200,15 +230,13 @@ export async function runCli(argv = process.argv) {
   }
 
   if (!file) {
-    printError('A file path is required for this command.');
     print(getHelpText().trim());
-    return exit(1);
+    return fail('ERR_FILE_REQUIRED', 'A file path is required for this command.');
   }
 
   const key = options.key ?? process.env.YAMLOCK_KEY;
   if (!key) {
-    printError('Encryption key is required via --key or YAMLOCK_KEY.');
-    return exit(1);
+    return fail('ERR_MISSING_KEY', 'Encryption key is required via --key or YAMLOCK_KEY.');
   }
 
   const absolutePath = resolve(process.cwd(), file);
@@ -216,8 +244,7 @@ export async function runCli(argv = process.argv) {
   try {
     config = readConfigFile(absolutePath);
   } catch (error) {
-    printError(`Failed to read config file: ${error.message}`);
-    return exit(1);
+    return fail('ERR_READ_FAILED', `Failed to read config file: ${error.message}`);
   }
 
   const outputPath = options.output
@@ -232,8 +259,15 @@ export async function runCli(argv = process.argv) {
         algorithm: options.algorithm,
         paths: options.paths
       });
-      writeConfigFile(outputPath, config.format, result);
-      print(`Encrypted values in ${outputPath === absolutePath ? file : options.output}`);
+      handleWrite({
+        dryRun: options.dryRun,
+        file,
+        outputPath,
+        format: config.format,
+        originalRaw: config.raw,
+        data: result,
+        operation: 'encrypt'
+      });
       return exit(0);
     }
 
@@ -244,17 +278,22 @@ export async function runCli(argv = process.argv) {
         algorithm: options.algorithm,
         paths: options.paths
       });
-      writeConfigFile(outputPath, config.format, result);
-      print(`Decrypted values in ${outputPath === absolutePath ? file : options.output}`);
+      handleWrite({
+        dryRun: options.dryRun,
+        file,
+        outputPath,
+        format: config.format,
+        originalRaw: config.raw,
+        data: result,
+        operation: 'decrypt'
+      });
       return exit(0);
     }
 
-    printError(`Unknown command: ${command}`);
     print(getHelpText().trim());
-    return exit(1);
+    return fail('ERR_UNKNOWN_COMMAND', `Unknown command: ${command}`);
   } catch (error) {
-    printError(`Operation failed: ${error.message}`);
-    return exit(1);
+    return fail('ERR_PROCESS_FAILED', `Operation failed: ${error.message}`);
   }
 }
 

@@ -67,6 +67,7 @@ The CLI detects YAML (`.yaml`/`.yml`) and JSON extensions automatically and writ
 Options of note:
 - `--output <file>` writes the result to a separate file instead of overwriting the input.
 - `--paths <path1,path2>` targets only the specified fields (dot/bracket notation like `db.password` or `users[0].token`).
+- `--dry-run` shows the would-be changes without modifying files (prints original vs new content).
 - Command `keygen` produces a random key and shows how to store it (shell export or `.env`).
 - Command `algorithms` prints two lists: tested presets (covered by yamlock) and additional ciphers available from the runtime.
 - Command `version` prints the installed CLI version.
