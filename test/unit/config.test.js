@@ -94,3 +94,28 @@ test('processConfig ignores non-existent paths without modifying data', () => {
   });
   assert.deepEqual(encrypted, input);
 });
+
+test('processConfig stringifies non-string values when policy=stringify', () => {
+  const input = { value: 12345 };
+  const encrypted = processConfig(input, {
+    mode: 'encrypt',
+    key: KEY,
+    nonStringPolicy: 'stringify'
+  });
+  assert.ok(encrypted.value.startsWith('yl|'));
+
+  const decrypted = processConfig(encrypted, {
+    mode: 'decrypt',
+    key: KEY,
+    nonStringPolicy: 'stringify'
+  });
+  assert.equal(decrypted.value, '12345');
+});
+
+test('processConfig throws when non-string values encountered and policy=error', () => {
+  const algorithmOptions = { algorithm: 'aes-192-cbc' };
+  const input = { value: { secret: 123 } };
+  assert.throws(() => {
+    processConfig(input, { mode: 'encrypt', key: KEY, nonStringPolicy: 'error', algorithm: algorithmOptions });
+  }, /Non-string value encountered/);
+});

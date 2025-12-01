@@ -15,6 +15,8 @@ const MODES = {
  * @param {string|Buffer} options.key
  * @param {string|object} [options.algorithm]
  * @param {object} [options.algorithmOptions]
+ * @param {"ignore"|"stringify"|"error"} [options.nonStringPolicy]
+ * @param {(segments: Array<string|number>) => string} [options.pathSerializer]
  * @param {string[]} [options.paths]
  * @param {Array<string|number>} [options.parentPath]
  * @returns {Object|Array}
@@ -37,11 +39,13 @@ export function processConfig(node, options) {
     ...options,
     mode,
     parentPath: options.parentPath ?? [],
-    normalizedPaths
+    normalizedPaths,
+    nonStringPolicy: options.nonStringPolicy ?? 'ignore',
+    pathSerializer: options.pathSerializer
   });
 }
 
-function traverseConfig(node, { mode, key, algorithm, algorithmOptions, parentPath, normalizedPaths }) {
+function traverseConfig(node, { mode, key, algorithm, algorithmOptions, parentPath, normalizedPaths, nonStringPolicy, pathSerializer }) {
   const isArrayNode = Array.isArray(node);
   const result = isArrayNode ? [] : {};
   const cryptoOptions = algorithmOptions ?? algorithm;
@@ -49,7 +53,9 @@ function traverseConfig(node, { mode, key, algorithm, algorithmOptions, parentPa
   Object.entries(node).forEach(([rawKey, value]) => {
     const segment = isArrayNode ? Number(rawKey) : rawKey;
     const targetKey = isArrayNode ? segment : rawKey;
-    const currentPath = buildPath(parentPath, segment);
+    const currentPath = pathSerializer
+      ? pathSerializer([...parentPath, segment])
+      : buildPath(parentPath, segment);
 
     if (value !== null && typeof value === 'object') {
       result[targetKey] = traverseConfig(value, {
@@ -58,14 +64,22 @@ function traverseConfig(node, { mode, key, algorithm, algorithmOptions, parentPa
         algorithm: cryptoOptions,
         algorithmOptions: cryptoOptions,
         parentPath: [...parentPath, segment],
-        normalizedPaths
+        normalizedPaths,
+        nonStringPolicy,
+        pathSerializer
       });
       return;
     }
 
     if (typeof value !== 'string') {
-      result[targetKey] = value;
-      return;
+      if (nonStringPolicy === 'stringify') {
+        value = JSON.stringify(value);
+      } else if (nonStringPolicy === 'error') {
+        throw new Error(`Non-string value encountered at ${currentPath}`);
+      } else {
+        result[targetKey] = value;
+        return;
+      }
     }
 
     const shouldProcess = !normalizedPaths || normalizedPaths.has(currentPath);

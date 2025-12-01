@@ -120,11 +120,36 @@ const restored = processConfig(processed, {
   key: KEY,
   algorithm: { algorithm: 'aes-192-cbc', ivLength: 24 }
 });
+
+// Control what happens when encountering non-string values and customize path IDs
+const mixedConfig = { db: { password: 'secret', retries: 3 } };
+const lockedMixed = processConfig(mixedConfig, {
+  mode: 'encrypt',
+  key: KEY,
+  nonStringPolicy: 'stringify', // stringifies numbers/objects before encrypting
+  pathSerializer: (segments) => segments.join('/') // custom path naming (db/password instead of dot notation)
+});
+
+// Example of a path serializer that includes array indexes explicitly
+const lockedUsers = processConfig(
+  { users: [{ tokens: ['abc'] }] },
+  {
+    mode: 'encrypt',
+    key: KEY,
+    pathSerializer: (segments) =>
+      segments
+        .map((segment, index) =>
+          typeof segment === 'number' ? `[${segment}]` : index === 0 ? segment : `/${segment}`
+        )
+        .join('')
+  }
+);
 ```
 
 ## Advanced usage
 
 - **Selective encryption**: combine `--paths` on the CLI or `paths: []` in `processConfig` to encrypt only sensitive sections of a config file.
+- **Non-string handling**: use `nonStringPolicy: 'ignore' | 'stringify' | 'error'` to control how numbers/objects are treated, and `pathSerializer` to change how traversal paths are represented (e.g., `db/password` instead of dot notation).
 - **CI/CD flows**: see [examples/docs/ci-cd.md](examples/docs/ci-cd.md) for a GitHub Actions job that decrypts configs for builds and re-encrypts them before publishing artifacts.
 - **Key rotation**: follow [examples/docs/key-rotation.md](examples/docs/key-rotation.md) for a step-by-step process, including scripting tips for large repos.
 
