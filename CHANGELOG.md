@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. Each step in the execution plan increments the version and should be tagged accordingly.
 
+## [0.2.10] - 2025-12-01
+### Added
+- README example demonstrating the `--dry-run` workflow (with sample diff output).
+
+### Changed
+- Package version bumped to keep documentation in sync.
+
 ## [0.2.9] - 2025-12-01
 ### Added
 - CLI `--dry-run` flag prints the diff without touching files.

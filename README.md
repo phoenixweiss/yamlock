@@ -60,6 +60,9 @@ yamlock algorithms
 
 # Generate a random key for YAMLOCK_KEY
 yamlock keygen --length 64 --format base64
+
+# Preview changes without touching files
+yamlock encrypt config.yml -o config.enc.yml -p db.password -k "my-secret-key" -d
 ```
 
 The CLI detects YAML (`.yaml`/`.yml`) and JSON extensions automatically and writes the file back in the same format.
