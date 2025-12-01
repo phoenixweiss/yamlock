@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. Each step in the execution plan increments the version and should be tagged accordingly.
 
+## [0.2.7] - 2025-12-01
+### Added
+- README badges for npm version and Node test status, plus a release information section summarizing install options.
+
+### Changed
+- Package version bumped to keep documentation in sync.
+
 ## [0.2.6] - 2025-11-28
 ### Added
 - Unit tests covering `processConfig` path filters and CLI integration tests for custom algorithms/decrypt paths.

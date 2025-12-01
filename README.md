@@ -4,6 +4,9 @@
 ░░▀░░▀░▀░▀░░░▀░▀▀▀░▀▀▀░▀▀▀░▀░▀░
 ```
 
+[![npm version](https://img.shields.io/npm/v/yamlock)](https://www.npmjs.com/package/yamlock)
+[![Tests](https://img.shields.io/badge/tests-node--test-green)](https://github.com/phoenixweiss/yamlock/actions)
+
 # yamlock
 
 Value-level encryption for YAML and JSON configuration files. The name **yamlock** combines "YAML" and "lock" while also sounding like "warlock", hinting at a little configuration magic.
@@ -125,6 +128,11 @@ const restored = processConfig(processed, {
 | `chacha20-poly1305` | AEAD stream cipher | 256-bit keys, 12-byte nonce, 16-byte auth tag. Provides built-in integrity/authentication. |
 
 You can also pass any algorithm supported by the current Node.js runtime (`crypto.getCiphers()`), along with custom `keyLength`, `ivLength`, or `authTagLength` overrides. Only the algorithms above are actively tested; additional presets may be added or revised in future releases.
+
+## Release information
+
+- The badges at the top show the latest npm version and the status of the Node test suite.
+- See [CHANGELOG.md](CHANGELOG.md) for detailed release notes; install a specific tag via `npm install yamlock@<version>`.
 
 ### Encrypted value format
 
