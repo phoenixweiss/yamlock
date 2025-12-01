@@ -12,11 +12,13 @@
     "jspm",
     "Nuxt",
     "pids",
+    "pipefail",
     "stylelintcache",
     "Sveltekit",
     "vite",
     "vitepress",
     "vuepress",
+    "worktree",
     "wscript",
     "yamlock"
   ]

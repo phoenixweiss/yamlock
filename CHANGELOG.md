@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. Each step in the execution plan increments the version and should be tagged accordingly.
 
+## [0.2.8] - 2025-12-01
+### Added
+- Advanced usage docs: selective path tips, CI/CD workflow example (`examples/docs/ci-cd.md`), and an expanded key-rotation guide with scripting advice.
+- README now links to the new docs and highlights selective encryption in a dedicated section.
+
+### Changed
+- Package version bumped to keep documentation in sync.
+
 ## [0.2.7] - 2025-12-01
 ### Added
 - README badges for npm version and Node test status, plus a release information section summarizing install options.

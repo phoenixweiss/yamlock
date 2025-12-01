@@ -118,6 +118,12 @@ const restored = processConfig(processed, {
 });
 ```
 
+## Advanced usage
+
+- **Selective encryption**: combine `--paths` on the CLI or `paths: []` in `processConfig` to encrypt only sensitive sections of a config file.
+- **CI/CD flows**: see [examples/docs/ci-cd.md](examples/docs/ci-cd.md) for a GitHub Actions job that decrypts configs for builds and re-encrypts them before publishing artifacts.
+- **Key rotation**: follow [examples/docs/key-rotation.md](examples/docs/key-rotation.md) for a step-by-step process, including scripting tips for large repos.
+
 ### Supported algorithms
 
 | Algorithm | Type | Notes |
