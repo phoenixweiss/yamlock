@@ -215,6 +215,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development workflow, available scrip
 - More CLI/API examples for rotating keys, selective field targeting, and CI automation.
 - Configurable behavior for non-string values (skip vs. coerce) and stricter file format validation.
 
+## Author
+
+Created and maintained by [Pavel Tkachev (@phoenixweiss)](https://github.com/phoenixweiss).
+
 ## License
 
 MIT © PAVEL TKACHEV
