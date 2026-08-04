@@ -7,6 +7,46 @@ import {
   parsePayload,
   resolveAlgorithmOptions
 } from './utils.js';
+import {
+  decryptValueV2,
+  detectPayloadVersion,
+  V2_ALGORITHM,
+  V2_FORMAT_VERSION
+} from './payload-v2.js';
+
+function validateV2Options(input) {
+  if (input === undefined) {
+    return;
+  }
+
+  if (typeof input === 'string') {
+    if (input !== V2_ALGORITHM) {
+      throw new Error(`yamlock v2 only supports ${V2_ALGORITHM}.`);
+    }
+    return;
+  }
+
+  if (typeof input !== 'object' || input === null) {
+    throw new Error('yamlock v2 options must be an object or algorithm string.');
+  }
+
+  if (input.algorithm !== undefined && input.algorithm !== V2_ALGORITHM) {
+    throw new Error(`yamlock v2 only supports ${V2_ALGORITHM}.`);
+  }
+
+  if (
+    input.formatVersion !== undefined &&
+    input.formatVersion !== V2_FORMAT_VERSION
+  ) {
+    throw new Error(`Payload format version does not match yamlock v2.`);
+  }
+
+  const unsupportedOverrides = ['keyLength', 'ivLength', 'authTagLength'];
+  const override = unsupportedOverrides.find((name) => input[name] !== undefined);
+  if (override) {
+    throw new Error(`yamlock v2 does not support the ${override} override.`);
+  }
+}
 
 function resolveDecryptOptions(payloadAlgorithm, overrides) {
   if (typeof overrides === 'string' || overrides === undefined) {
@@ -30,6 +70,16 @@ function resolveDecryptOptions(payloadAlgorithm, overrides) {
 export function decryptValue(encryptedValue, key, fieldPath, algorithmOptions) {
   if (!isYamlockPayload(encryptedValue)) {
     throw new Error('decryptValue expects a yamlock-formatted payload.');
+  }
+
+  const payloadVersion = detectPayloadVersion(encryptedValue);
+  if (payloadVersion === V2_FORMAT_VERSION) {
+    validateV2Options(algorithmOptions);
+    return decryptValueV2(encryptedValue, key, fieldPath);
+  }
+
+  if (payloadVersion !== 1) {
+    throw new Error(`Unsupported yamlock payload version: ${payloadVersion}`);
   }
 
   const payload = parsePayload(encryptedValue);

@@ -1,6 +1,7 @@
 # yamlock payload v2 design
 
-Status: proposed design; not implemented.
+Status: Phase A implemented locally; legacy output remains the default. The
+migration workflow and default-format change are not implemented.
 
 This document defines the intended security and compatibility contract for the
 next yamlock payload format. It is deliberately separate from the current
@@ -131,13 +132,15 @@ yl|2|aes-256-gcm|scrypt|32768|8|1|<kdf_salt>|<nonce>|<path>
 During encryption, this exact byte sequence is passed to `cipher.setAAD()`
 before plaintext processing.
 
-During decryption, yamlock reconstructs the AAD from validated payload metadata
-but replaces the serialized path segment with the base64url encoding of the
-caller-provided field path. Therefore:
+During decryption, yamlock authenticates the exact serialized header, including
+the stored path. Only after authentication succeeds does it compare the
+authenticated path with the base64url encoding of the caller-provided field
+path. Therefore:
 
-- an unchanged payload at its original path authenticates;
-- moving the payload to another path fails authentication;
-- editing the stored path to match a new location still fails authentication;
+- an unchanged payload at its original path authenticates and matches;
+- moving the unchanged payload authenticates its stored metadata but fails the
+  caller-path comparison;
+- editing the stored path changes AAD and fails authentication;
 - editing any other header field either fails strict validation or changes the
   derived key/AAD and fails authentication.
 
@@ -167,11 +170,13 @@ not be exposed as a security distinction.
 4. Resolve KDF parameters only through an allowlist of supported profiles.
    Never pass attacker-controlled unbounded values directly to scrypt.
 5. Derive the key from the supplied secret and parsed KDF salt.
-6. Reconstruct AAD with the caller-provided field path.
+6. Reconstruct AAD from the exact validated serialized header.
 7. Create the GCM decipher with `authTagLength: 16`, then call `setAAD()` and
    `setAuthTag()` before processing ciphertext.
-8. Return plaintext only after `decipher.final()` authenticates successfully.
-9. Convert all wrong-key, wrong-path, and tampering outcomes to the same public
+8. After `decipher.final()` authenticates successfully, compare the
+   authenticated stored path with the caller-provided path.
+9. Return plaintext only after both authentication and path comparison succeed.
+10. Convert all wrong-key, wrong-path, and tampering outcomes to the same public
    authentication error.
 
 No partially decrypted plaintext may be returned or written to disk.

@@ -146,6 +146,37 @@ const lockedUsers = processConfig(
 );
 ```
 
+### Authenticated payload v2 (opt-in)
+
+yamlock can write the proposed authenticated v2 format through the Node.js API.
+Legacy output remains the default during the compatibility phase, while
+`decryptValue` and `processConfig` automatically read both formats.
+
+```js
+const encrypted = encryptValue('swordfish', KEY, 'db.password', {
+  formatVersion: 2
+});
+
+const locked = processConfig(
+  { db: { password: 'swordfish' } },
+  { mode: 'encrypt', key: KEY, formatVersion: 2 }
+);
+
+// No format or algorithm option is required when decrypting.
+const original = decryptValue(encrypted, KEY, 'db.password');
+const unlocked = processConfig(locked, { mode: 'decrypt', key: KEY });
+```
+
+V2 uses a fixed AES-256-GCM profile, a random 12-byte nonce, a 16-byte
+authentication tag, and scrypt with a separate random KDF salt. The field path
+and security-critical metadata are authenticated. Free-form cipher and size
+overrides are intentionally unavailable for v2.
+
+The CLI continues to write the legacy format until an atomic migration workflow
+is available. See [the payload v2 design](docs/design/payload-v2.md) for the
+format, threat model, limits, and staged migration plan. This design and
+implementation have not received a third-party security audit.
+
 ## Advanced usage
 
 - **Selective encryption**: combine `--paths` on the CLI or `paths: []` in `processConfig` to encrypt only sensitive sections of a config file.

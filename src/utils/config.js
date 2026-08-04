@@ -15,6 +15,7 @@ const MODES = {
  * @param {string|Buffer} options.key
  * @param {string|object} [options.algorithm]
  * @param {object} [options.algorithmOptions]
+ * @param {1|2} [options.formatVersion]
  * @param {"ignore"|"stringify"|"error"} [options.nonStringPolicy]
  * @param {(segments: Array<string|number>) => string} [options.pathSerializer]
  * @param {string[]} [options.paths]
@@ -45,10 +46,15 @@ export function processConfig(node, options) {
   });
 }
 
-function traverseConfig(node, { mode, key, algorithm, algorithmOptions, parentPath, normalizedPaths, nonStringPolicy, pathSerializer }) {
+function traverseConfig(node, { mode, key, algorithm, algorithmOptions, formatVersion, parentPath, normalizedPaths, nonStringPolicy, pathSerializer }) {
   const isArrayNode = Array.isArray(node);
   const result = isArrayNode ? [] : {};
-  const cryptoOptions = algorithmOptions ?? algorithm;
+  const selectedCryptoOptions = algorithmOptions ?? algorithm;
+  const cryptoOptions = formatVersion === undefined
+    ? selectedCryptoOptions
+    : typeof selectedCryptoOptions === 'object' && selectedCryptoOptions !== null
+      ? { ...selectedCryptoOptions, formatVersion }
+      : { algorithm: selectedCryptoOptions, formatVersion };
 
   Object.entries(node).forEach(([rawKey, value]) => {
     const segment = isArrayNode ? Number(rawKey) : rawKey;

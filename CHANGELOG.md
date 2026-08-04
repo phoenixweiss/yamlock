@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. Each step in the execution plan increments the version and should be tagged accordingly.
 
+## [Unreleased]
+### Added
+- Opt-in authenticated payload v2 for the Node.js API through `formatVersion: 2`, using AES-256-GCM, scrypt, strict parsing, and authenticated field-path metadata.
+- Frozen legacy payload fixtures and v2 regression tests for deterministic vectors, tampering, malformed input, mixed-format configs, and resource limits.
+- Payload v2 design documentation covering the threat model, serialized format, compatibility, and staged migration.
+
+### Changed
+- `decryptValue` and `processConfig` now auto-detect and read both legacy and v2 payloads; legacy encryption remains the default during the compatibility phase.
+
 ## [0.3.0] - 2025-12-01
 ### Added
 - `processConfig` non-string policies (`ignore`, `stringify`, `error`) and optional `pathSerializer` hook.
