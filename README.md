@@ -36,6 +36,7 @@ yarn add yamlock            # project dependency
 
 - Encrypt/decrypt individual configuration values with deterministic field-path salts.
 - CLI workflow that processes YAML or JSON files in place.
+- Safe CLI migration from legacy payloads to authenticated v2 payloads.
 - Recursively lock/unlock entire objects via `processConfig`.
 - Public API exports that mirror CLI behavior for programmatic use.
 - Focus on Node.js 22+, ESM modules, and a lightweight dependency set (`js-yaml`).
@@ -63,6 +64,9 @@ yamlock keygen --length 64 --format base64
 
 # Preview changes without touching files
 yamlock encrypt config.yml -o config.enc.yml -p db.password -k "my-secret-key" -d
+
+# Preview a legacy-to-v2 migration without printing config contents
+yamlock migrate config.yml -k "$YAMLOCK_KEY" -p db.password -d
 ```
 
 The CLI detects YAML (`.yaml`/`.yml`) and JSON extensions automatically and writes the file back in the same format.
@@ -70,7 +74,10 @@ The CLI detects YAML (`.yaml`/`.yml`) and JSON extensions automatically and writ
 Options of note:
 - `--output <file>` writes the result to a separate file instead of overwriting the input.
 - `--paths <path1,path2>` targets only the specified fields (dot/bracket notation like `db.password` or `users[0].token`).
-- `--dry-run` shows the would-be changes without modifying files (prints original vs new content).
+- `--dry-run` previews an operation without modifying files; encrypt/decrypt print content changes, while migrate prints only counts and target paths.
+- `migrate` decrypts selected legacy payloads and re-encrypts them as authenticated v2 payloads.
+- `migrate --allow-mixed` additionally authenticates and preserves selected values that are already v2.
+- In-place migration creates `<file>.yamlock.bak` by default; `--no-backup` disables it explicitly.
 - Command `keygen` produces a random key and shows how to store it (shell export or `.env`).
 - Command `algorithms` prints two lists: tested presets (covered by yamlock) and additional ciphers available from the runtime.
 - Command `version` prints the installed CLI version.
@@ -172,10 +179,34 @@ authentication tag, and scrypt with a separate random KDF salt. The field path
 and security-critical metadata are authenticated. Free-form cipher and size
 overrides are intentionally unavailable for v2.
 
-The CLI continues to write the legacy format until an atomic migration workflow
-is available. See [the payload v2 design](docs/design/payload-v2.md) for the
-format, threat model, limits, and staged migration plan. This design and
-implementation have not received a third-party security audit.
+The `encrypt` command continues to write the legacy format during the
+compatibility phase. Existing files can be migrated safely with the CLI:
+
+```bash
+# Preview counts and target paths; config contents are not printed.
+yamlock migrate config.yaml --key "$YAMLOCK_KEY" --paths "db.password,api.token" --dry-run
+
+# Migrate in place and create config.yaml.yamlock.bak.
+yamlock migrate config.yaml --key "$YAMLOCK_KEY" --paths "db.password,api.token"
+
+# Preserve the source and write a new file. Existing outputs are never replaced.
+yamlock migrate config.yaml --key "$YAMLOCK_KEY" --paths "db.password,api.token" --output config.v2.yaml
+```
+
+Migration validates every selected value and builds the complete result before
+writing. Selected plaintext and non-string values are rejected, so use
+`--paths` for partially encrypted configs. Selected v2 values are rejected
+unless `--allow-mixed` is set; with that flag they are authenticated and kept
+unchanged. In-place writes are atomic, preserve the source file mode, and do
+not replace an existing backup. To roll back, verify the backup and then copy
+`config.yaml.yamlock.bak` over `config.yaml`.
+
+Legacy AES-CBC payloads have no authentication, so migration can only validate
+their structure, field path, and successful decryption. Backups use the source
+file permissions and match `*.yamlock.bak` in the repository `.gitignore`.
+See [the payload v2 design](docs/design/payload-v2.md) for the format, threat
+model, limits, and staged migration plan. This design and implementation have
+not received a third-party security audit.
 
 ## Advanced usage
 

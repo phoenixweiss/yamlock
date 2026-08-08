@@ -1,12 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  statSync,
+  symlinkSync,
+  writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import yaml from 'js-yaml';
+
+import { decryptValue } from '../../src/crypto/decrypt.js';
+import { encryptValue } from '../../src/crypto/encrypt.js';
 
 const require = createRequire(import.meta.url);
 const packageJson = require('../../package.json');
@@ -239,4 +250,212 @@ test('CLI decrypts only specified paths when --paths is provided', () => {
   const afterDecrypt = JSON.parse(readFileSync(filePath, 'utf8'));
   assert.equal(afterDecrypt.db.password, input.db.password);
   assert.notEqual(afterDecrypt.api.token, input.api.token);
+});
+
+test('CLI migrates legacy payloads in place with backup and preserved permissions', () => {
+  const legacy = encryptValue('secret', KEY, 'db.password');
+  const filePath = createTempFile({ db: { password: legacy, user: 'app' } });
+  const backupPath = `${filePath}.yamlock.bak`;
+  chmodSync(filePath, 0o640);
+  const originalRaw = readFileSync(filePath, 'utf8');
+
+  const result = runCli([
+    'migrate',
+    filePath,
+    '--key',
+    KEY,
+    '--paths',
+    'db.password'
+  ]);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Migrated 1 legacy value/);
+  assert.equal(readFileSync(backupPath, 'utf8'), originalRaw);
+  assert.equal(statSync(backupPath).mode & 0o777, 0o640);
+  assert.equal(statSync(filePath).mode & 0o777, 0o640);
+
+  const migrated = JSON.parse(readFileSync(filePath, 'utf8'));
+  assert.match(migrated.db.password, /^yl\|2\|/);
+  assert.equal(decryptValue(migrated.db.password, KEY, 'db.password'), 'secret');
+  assert.equal(migrated.db.user, 'app');
+});
+
+test('CLI migration dry-run leaves input and backups untouched', () => {
+  const legacy = encryptValue('dry-run-secret', KEY, 'value');
+  const filePath = createTempFile({ value: legacy, note: 'visible-plaintext' });
+  const originalRaw = readFileSync(filePath, 'utf8');
+
+  const result = runCli([
+    'migrate',
+    filePath,
+    '--key',
+    KEY,
+    '--paths',
+    'value',
+    '--dry-run'
+  ]);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /DRY-RUN \(migrate\)/);
+  assert.match(result.stdout, /Would migrate 1 legacy value/);
+  assert.match(result.stdout, /No files were modified/);
+  assert.doesNotMatch(result.stdout, /dry-run-secret|visible-plaintext/);
+  assert.equal(readFileSync(filePath, 'utf8'), originalRaw);
+  assert.equal(existsSync(`${filePath}.yamlock.bak`), false);
+});
+
+test('CLI migration handles mixed legacy and v2 payloads only with explicit permission', () => {
+  const legacy = encryptValue('old-secret', KEY, 'legacy');
+  const v2 = encryptValue('new-secret', KEY, 'modern', { formatVersion: 2 });
+  const filePath = createTempFile({ legacy, modern: v2 });
+  const originalRaw = readFileSync(filePath, 'utf8');
+
+  const refused = runCli(['migrate', filePath, '--key', KEY]);
+  assert.equal(refused.status, 1);
+  assert.match(refused.stderr, /\[yamlock:ERR_MIGRATION_ALREADY_V2]/);
+  assert.doesNotMatch(refused.stderr, /old-secret|new-secret/);
+  assert.equal(readFileSync(filePath, 'utf8'), originalRaw);
+  assert.equal(existsSync(`${filePath}.yamlock.bak`), false);
+
+  const allowed = runCli([
+    'migrate',
+    filePath,
+    '--key',
+    KEY,
+    '--allow-mixed'
+  ]);
+  assert.equal(allowed.status, 0, allowed.stderr);
+  assert.match(allowed.stdout, /Migrated 1 legacy value/);
+  assert.match(allowed.stdout, /preserved 1 existing v2 value/);
+
+  const migrated = JSON.parse(readFileSync(filePath, 'utf8'));
+  assert.match(migrated.legacy, /^yl\|2\|/);
+  assert.equal(migrated.modern, v2);
+});
+
+test('CLI migration validates every selected value before creating files', () => {
+  const legacy = encryptValue('first-secret', KEY, 'first');
+  const filePath = createTempFile({ first: legacy, second: 'plaintext' });
+  const originalRaw = readFileSync(filePath, 'utf8');
+
+  const result = runCli(['migrate', filePath, '--key', KEY]);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /\[yamlock:ERR_MIGRATION_PLAINTEXT]/);
+  assert.doesNotMatch(result.stderr, /first-secret/);
+  assert.equal(readFileSync(filePath, 'utf8'), originalRaw);
+  assert.equal(existsSync(`${filePath}.yamlock.bak`), false);
+});
+
+test('CLI migration fails closed on an authenticated legacy payload with the wrong key', () => {
+  const legacy = encryptValue(
+    'authenticated-secret',
+    KEY,
+    'value',
+    'chacha20-poly1305'
+  );
+  const filePath = createTempFile({ value: legacy });
+  const originalRaw = readFileSync(filePath, 'utf8');
+
+  const result = runCli(['migrate', filePath, '--key', 'wrong-key']);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /\[yamlock:ERR_MIGRATION_FAILED]/);
+  assert.doesNotMatch(result.stderr, /authenticated-secret/);
+  assert.equal(readFileSync(filePath, 'utf8'), originalRaw);
+  assert.equal(existsSync(`${filePath}.yamlock.bak`), false);
+});
+
+test('CLI migration can write a separate output without changing the source', () => {
+  const legacy = encryptValue('output-secret', KEY, 'value');
+  const filePath = createTempFile({ value: legacy }, '.yaml');
+  const outputPath = `${filePath}.migrated.yaml`;
+  const originalRaw = readFileSync(filePath, 'utf8');
+
+  const result = runCli([
+    'migrate',
+    filePath,
+    '--key',
+    KEY,
+    '--output',
+    outputPath
+  ]);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(readFileSync(filePath, 'utf8'), originalRaw);
+  assert.equal(existsSync(`${filePath}.yamlock.bak`), false);
+  const migrated = yaml.load(readFileSync(outputPath, 'utf8'));
+  assert.match(migrated.value, /^yl\|2\|/);
+
+  const refused = runCli([
+    'migrate',
+    filePath,
+    '--key',
+    KEY,
+    '--output',
+    outputPath
+  ]);
+  assert.equal(refused.status, 1);
+  assert.match(refused.stderr, /\[yamlock:ERR_MIGRATION_OUTPUT_EXISTS]/);
+  assert.equal(readFileSync(filePath, 'utf8'), originalRaw);
+});
+
+test('CLI migration refuses to replace an existing backup', () => {
+  const legacy = encryptValue('backup-secret', KEY, 'value');
+  const filePath = createTempFile({ value: legacy });
+  const backupPath = `${filePath}.yamlock.bak`;
+  const originalRaw = readFileSync(filePath, 'utf8');
+  writeFileSync(backupPath, 'keep-existing-backup');
+
+  const result = runCli(['migrate', filePath, '--key', KEY]);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /\[yamlock:ERR_MIGRATION_BACKUP_EXISTS]/);
+  assert.equal(readFileSync(filePath, 'utf8'), originalRaw);
+  assert.equal(readFileSync(backupPath, 'utf8'), 'keep-existing-backup');
+});
+
+test('CLI migration supports explicit no-backup and leaves all-v2 input unchanged', () => {
+  const legacy = encryptValue('no-backup-secret', KEY, 'value');
+  const filePath = createTempFile({ value: legacy });
+
+  const migrated = runCli([
+    'migrate',
+    filePath,
+    '--key',
+    KEY,
+    '--no-backup'
+  ]);
+  assert.equal(migrated.status, 0, migrated.stderr);
+  assert.match(migrated.stdout, /Backup disabled by --no-backup/);
+  assert.equal(existsSync(`${filePath}.yamlock.bak`), false);
+
+  const migratedRaw = readFileSync(filePath, 'utf8');
+  const noOp = runCli([
+    'migrate',
+    filePath,
+    '--key',
+    KEY,
+    '--allow-mixed'
+  ]);
+  assert.equal(noOp.status, 0, noOp.stderr);
+  assert.match(noOp.stdout, /No legacy values required migration/);
+  assert.match(noOp.stdout, /No files were modified/);
+  assert.equal(readFileSync(filePath, 'utf8'), migratedRaw);
+  assert.equal(existsSync(`${filePath}.yamlock.bak`), false);
+});
+
+test('CLI migration refuses symbolic-link inputs', () => {
+  const legacy = encryptValue('link-secret', KEY, 'value');
+  const filePath = createTempFile({ value: legacy });
+  const linkPath = `${filePath}.link.json`;
+  const originalRaw = readFileSync(filePath, 'utf8');
+  symlinkSync(filePath, linkPath);
+
+  const result = runCli(['migrate', linkPath, '--key', KEY]);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /\[yamlock:ERR_MIGRATION_UNSAFE_INPUT]/);
+  assert.equal(readFileSync(filePath, 'utf8'), originalRaw);
+  assert.equal(existsSync(`${linkPath}.yamlock.bak`), false);
 });

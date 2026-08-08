@@ -1,6 +1,17 @@
 #!/usr/bin/env node
-import { readFileSync, writeFileSync } from 'node:fs';
-import { resolve, extname } from 'node:path';
+import {
+  closeSync,
+  fchmodSync,
+  fsyncSync,
+  linkSync,
+  lstatSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync
+} from 'node:fs';
+import { basename, dirname, extname, join, resolve } from 'node:path';
 import { exit } from 'node:process';
 import { createRequire } from 'node:module';
 import { randomBytes } from 'node:crypto';
@@ -8,6 +19,7 @@ import { randomBytes } from 'node:crypto';
 import yaml from 'js-yaml';
 
 import { processConfig } from '../utils/config.js';
+import { migrateConfig } from '../utils/migrate.js';
 import { listSupportedAlgorithms, TESTED_ALGORITHMS } from '../crypto/utils.js';
 
 const require = createRequire(import.meta.url);
@@ -28,6 +40,7 @@ yamlock <command> [options]
 Commands:
   encrypt <file>       Encrypt string values in the given YAML/JSON file.
   decrypt <file>       Decrypt string values in the given YAML/JSON file.
+  migrate <file>       Migrate selected legacy payloads to authenticated v2.
   version              Print the yamlock CLI version.
   algorithms           Print the list of supported cipher algorithms.
   keygen               Generate a random YAMLOCK_KEY.
@@ -37,7 +50,9 @@ Options:
   -a, --algorithm <value>  Cipher algorithm (default: aes-256-cbc).
   -o, --output <file>      Write the result to a different file (otherwise overwrites the input file).
   -p, --paths <p1,p2>      Comma-separated list of field paths to process (dot/bracket notation).
-  -d, --dry-run             Show the diff without modifying files.
+  -d, --dry-run             Preview the operation without modifying files.
+  --allow-mixed            (migrate) Authenticate and preserve selected v2 values.
+  --no-backup              (migrate) Replace the input without creating <file>.yamlock.bak.
   --length <bytes>         (keygen) Number of random bytes to generate (default: 32).
   --format <hex|base64>    (keygen) Output format (default: base64).
 `;
@@ -61,14 +76,15 @@ function detectFormat(filePath) {
 }
 
 function readConfigFile(filePath) {
+  const stat = lstatSync(filePath);
   const content = readFileSync(filePath, 'utf8');
   const format = detectFormat(filePath);
 
   if (format === 'yaml') {
-    return { format, data: yaml.load(content) ?? {}, raw: content };
+    return { format, data: yaml.load(content) ?? {}, raw: content, stat };
   }
 
-  return { format, data: JSON.parse(content), raw: content };
+  return { format, data: JSON.parse(content), raw: content, stat };
 }
 
 function serializeConfig(format, data) {
@@ -79,8 +95,42 @@ function serializeConfig(format, data) {
   return `${JSON.stringify(data, null, 2)}\n`;
 }
 
-function writeConfigFile(filePath, serialized) {
-  writeFileSync(filePath, serialized, 'utf8');
+function writeConfigFileAtomically(filePath, serialized, { mode, refuseExisting = false } = {}) {
+  const temporaryPath = join(
+    dirname(filePath),
+    `.${basename(filePath)}.yamlock-${process.pid}-${randomBytes(8).toString('hex')}.tmp`
+  );
+  let fileDescriptor;
+
+  try {
+    fileDescriptor = openSync(temporaryPath, 'wx', 0o600);
+    writeFileSync(fileDescriptor, serialized, 'utf8');
+    if (mode !== undefined) {
+      fchmodSync(fileDescriptor, mode);
+    }
+    fsyncSync(fileDescriptor);
+    closeSync(fileDescriptor);
+    fileDescriptor = undefined;
+
+    if (refuseExisting) {
+      linkSync(temporaryPath, filePath);
+      unlinkSync(temporaryPath);
+      return;
+    }
+
+    renameSync(temporaryPath, filePath);
+  } catch (error) {
+    if (fileDescriptor !== undefined) {
+      closeSync(fileDescriptor);
+    }
+
+    try {
+      unlinkSync(temporaryPath);
+    } catch {
+      // The temporary file may already have been renamed or removed.
+    }
+    throw error;
+  }
 }
 
 function parsePaths(value) {
@@ -99,7 +149,7 @@ function parseArgs(argv) {
   const result = {
     command: args[0],
     file: undefined,
-    options: { dryRun: false }
+    options: { dryRun: false, allowMixed: false, noBackup: false }
   };
 
   let index = 1;
@@ -135,6 +185,10 @@ function parseArgs(argv) {
       i += 1;
     } else if (arg === '-d' || arg === '--dry-run') {
       result.options.dryRun = true;
+    } else if (arg === '--allow-mixed') {
+      result.options.allowMixed = true;
+    } else if (arg === '--no-backup') {
+      result.options.noBackup = true;
     }
   }
 
@@ -159,6 +213,10 @@ function fail(code, message) {
   return exit(1);
 }
 
+function cliError(code, message) {
+  return Object.assign(new Error(message), { code });
+}
+
 function handleWrite({ dryRun, file, outputPath, format, originalRaw, data, operation }) {
   const serialized = serializeConfig(format, data);
   if (dryRun) {
@@ -174,8 +232,118 @@ function handleWrite({ dryRun, file, outputPath, format, originalRaw, data, oper
     return;
   }
 
-  writeConfigFile(outputPath, serialized);
+  writeFileSync(outputPath, serialized, 'utf8');
   print(`${operation === 'encrypt' ? 'Encrypted' : 'Decrypted'} values in ${outputPath}`);
+}
+
+function validateMigrationSource(filePath, config) {
+  if (config.stat.isSymbolicLink()) {
+    throw cliError(
+      'ERR_MIGRATION_UNSAFE_INPUT',
+      'Migration input must not be a symbolic link.'
+    );
+  }
+
+  if (!config.stat.isFile()) {
+    throw cliError(
+      'ERR_MIGRATION_UNSAFE_INPUT',
+      'Migration input must be a regular file.'
+    );
+  }
+
+  const currentStat = lstatSync(filePath);
+  const currentRaw = readFileSync(filePath, 'utf8');
+  if (
+    !currentStat.isFile() ||
+    currentStat.isSymbolicLink() ||
+    currentStat.dev !== config.stat.dev ||
+    currentStat.ino !== config.stat.ino ||
+    currentStat.mode !== config.stat.mode ||
+    currentRaw !== config.raw
+  ) {
+    throw cliError(
+      'ERR_MIGRATION_INPUT_CHANGED',
+      'Migration input changed after it was read.'
+    );
+  }
+}
+
+function handleMigration({ file, absolutePath, outputPath, config, key, options }) {
+  if (options.algorithm !== undefined) {
+    throw cliError('ERR_INVALID_OPTION', 'migrate does not accept --algorithm.');
+  }
+
+  validateMigrationSource(absolutePath, config);
+  const result = migrateConfig(config.data, {
+    key,
+    paths: options.paths,
+    allowMixed: options.allowMixed
+  });
+  const serialized = serializeConfig(config.format, result.data);
+
+  if (!result.changed) {
+    print(`No legacy values required migration; authenticated ${result.stats.preservedV2} v2 value(s).`);
+    print('No files were modified.');
+    return;
+  }
+
+  if (options.dryRun) {
+    print(`DRY-RUN (migrate) ${file}`);
+    print(`Would migrate ${result.stats.migrated} legacy value(s) and preserve ${result.stats.preservedV2} v2 value(s).`);
+    if (outputPath === absolutePath && !options.noBackup) {
+      print(`Would create backup ${absolutePath}.yamlock.bak.`);
+    }
+    print(`Would write to ${outputPath}.`);
+    print('No files were modified.');
+    return;
+  }
+
+  validateMigrationSource(absolutePath, config);
+  const inPlace = outputPath === absolutePath;
+  let backupPath;
+  if (inPlace && !options.noBackup) {
+    backupPath = `${absolutePath}.yamlock.bak`;
+    try {
+      writeConfigFileAtomically(backupPath, config.raw, {
+        mode: config.stat.mode & 0o7777,
+        refuseExisting: true
+      });
+    } catch (error) {
+      if (error.code === 'EEXIST') {
+        throw cliError(
+          'ERR_MIGRATION_BACKUP_EXISTS',
+          `Backup already exists: ${backupPath}`
+        );
+      }
+      throw error;
+    }
+  }
+
+  try {
+    writeConfigFileAtomically(outputPath, serialized, {
+      mode: config.stat.mode & 0o7777,
+      refuseExisting: !inPlace
+    });
+  } catch (error) {
+    if (!inPlace && error.code === 'EEXIST') {
+      throw cliError(
+        'ERR_MIGRATION_OUTPUT_EXISTS',
+        `Migration output already exists: ${outputPath}`
+      );
+    }
+    throw error;
+  }
+  print(`Migrated ${result.stats.migrated} legacy value(s) to v2 in ${outputPath}.`);
+  if (result.stats.preservedV2 > 0) {
+    print(`Authenticated and preserved ${result.stats.preservedV2} existing v2 value(s).`);
+  }
+  if (backupPath) {
+    print(`Backup: ${backupPath}`);
+  } else if (inPlace) {
+    print('Backup disabled by --no-backup.');
+  } else {
+    print('Source file was preserved; no backup was created.');
+  }
 }
 
 export async function runCli(argv = process.argv) {
@@ -252,6 +420,18 @@ export async function runCli(argv = process.argv) {
     : absolutePath;
 
   try {
+    if (command === 'migrate') {
+      handleMigration({
+        file,
+        absolutePath,
+        outputPath,
+        config,
+        key,
+        options
+      });
+      return exit(0);
+    }
+
     if (command === 'encrypt') {
       const result = processConfig(config.data, {
         mode: 'encrypt',
@@ -293,7 +473,12 @@ export async function runCli(argv = process.argv) {
     print(getHelpText().trim());
     return fail('ERR_UNKNOWN_COMMAND', `Unknown command: ${command}`);
   } catch (error) {
-    return fail('ERR_PROCESS_FAILED', `Operation failed: ${error.message}`);
+    const code = typeof error.code === 'string' && error.code.startsWith('ERR_')
+      ? error.code
+      : command === 'migrate'
+        ? 'ERR_MIGRATION_FAILED'
+        : 'ERR_PROCESS_FAILED';
+    return fail(code, `Operation failed: ${error.message}`);
   }
 }
 

@@ -1,7 +1,7 @@
 # yamlock payload v2 design
 
-Status: Phase A implemented locally; legacy output remains the default. The
-migration workflow and default-format change are not implemented.
+Status: Phases A and B are implemented; legacy output remains the default. The
+default-format change is intentionally deferred to Phase C.
 
 This document defines the intended security and compatibility contract for the
 next yamlock payload format. It is deliberately separate from the current
@@ -254,15 +254,24 @@ Migration is decrypt-then-encrypt; it is never a header-only rewrite.
 
 ### Phase B: safe migration workflow
 
-- Add a CLI migration path with `--dry-run`, selective `--paths`, and a separate
-  output option.
-- Refuse double encryption and already-v2 values unless explicitly requested.
-- Read the whole input, authenticate/decrypt every selected legacy value,
-  construct the complete v2 result in memory, and only then replace the target
-  atomically while preserving file permissions.
-- Support mixed files and report counts without printing plaintext or keys.
-- Keep backups and rollback behavior explicit; never silently rewrite a file
-  after a partial failure.
+- [x] Add a CLI migration path with `--dry-run`, selective `--paths`, and a
+  separate output option.
+- [x] Refuse double encryption and already-v2 values unless `--allow-mixed` is
+  explicitly requested; authenticated v2 values are then preserved unchanged.
+- [x] Read the whole input, decrypt every selected legacy value, construct the
+  complete v2 result in memory, and only then replace the target atomically
+  while preserving file permissions.
+- [x] Support mixed v1/v2 files and report counts without printing plaintext or
+  keys. Selected plaintext and non-string values fail closed.
+- [x] Create an exclusive `<file>.yamlock.bak` for in-place migration unless
+  `--no-backup` is explicit. Separate output preserves the source and refuses
+  to replace an existing path.
+
+Legacy AES-CBC values cannot be authenticated because their original format
+does not contain an authentication tag. Migration validates their envelope,
+field path, and successful decryption before wrapping the recovered value in
+v2. Legacy authenticated ciphers and existing v2 values fail when integrity or
+the key is wrong.
 
 ### Phase C: v2 becomes the writer default
 
@@ -302,8 +311,9 @@ Migration is decrypt-then-encrypt; it is never a header-only rewrite.
 
 - Benchmark scrypt on the complete supported CI matrix and representative
   configs before locking the writer default.
-- Decide the exact API/CLI names for format selection and migration without
-  overloading the existing decrypt-only algorithm inference.
+- Decide the exact CLI format-selection name for Phase C without overloading
+  the existing decrypt-only algorithm inference. Phase B uses `migrate` and
+  keeps v2 writing out of the existing `encrypt --algorithm` option.
 - Define stable library error classes/codes before exposing v2 publicly.
 - Review this design and implementation as application cryptography; passing
   tests alone is not a third-party security audit.
