@@ -46,6 +46,13 @@ function createTempFile(content, extension = '.json') {
   return filePath;
 }
 
+function encryptLegacy(value, fieldPath, algorithm = 'aes-256-cbc') {
+  return encryptValue(value, KEY, fieldPath, {
+    formatVersion: 1,
+    algorithm
+  });
+}
+
 test('CLI encrypts and decrypts JSON configs', () => {
   const input = {
     db: {
@@ -58,7 +65,7 @@ test('CLI encrypts and decrypts JSON configs', () => {
   assert.equal(encryptResult.status, 0, encryptResult.stderr);
 
   const afterEncrypt = JSON.parse(readFileSync(filePath, 'utf8'));
-  assert.notEqual(afterEncrypt.db.password, input.db.password);
+  assert.match(afterEncrypt.db.password, /^yl\|2\|/);
 
   const decryptResult = runCli(['decrypt', filePath, '--key', KEY]);
   assert.equal(decryptResult.status, 0, decryptResult.stderr);
@@ -81,7 +88,7 @@ test('CLI encrypts and decrypts YAML configs', () => {
   assert.equal(encryptResult.status, 0, encryptResult.stderr);
 
   const afterEncrypt = yaml.load(readFileSync(filePath, 'utf8'));
-  assert.notEqual(afterEncrypt.services.api.token, input.services.api.token);
+  assert.match(afterEncrypt.services.api.token, /^yl\|2\|/);
 
   const decryptResult = runCli(['decrypt', filePath, '--key', KEY]);
   assert.equal(decryptResult.status, 0, decryptResult.stderr);
@@ -95,6 +102,34 @@ test('CLI fails when key is missing', () => {
   const result = runCli(['encrypt', filePath]);
   assert.equal(result.status, 1);
   assert.match(result.stderr, /\[yamlock:ERR_MISSING_KEY]/);
+});
+
+test('CLI requires explicit legacy mode for legacy algorithm selection', () => {
+  const input = { value: 'secret' };
+  const filePath = createTempFile(input);
+
+  const refused = runCli([
+    'encrypt',
+    filePath,
+    '--key',
+    KEY,
+    '--algorithm',
+    'aes-256-cbc'
+  ]);
+  assert.equal(refused.status, 1);
+  assert.match(refused.stderr, /\[yamlock:ERR_INVALID_OPTION]/);
+  assert.deepEqual(JSON.parse(readFileSync(filePath, 'utf8')), input);
+
+  const legacy = runCli([
+    'encrypt',
+    filePath,
+    '--key',
+    KEY,
+    '--legacy'
+  ]);
+  assert.equal(legacy.status, 0, legacy.stderr);
+  const encrypted = JSON.parse(readFileSync(filePath, 'utf8'));
+  assert.match(encrypted.value, /^yl\|aes-256-cbc\|/);
 });
 
 test('CLI encrypts only specified paths when --paths is provided', () => {
@@ -177,7 +212,8 @@ test('CLI version command prints package version', () => {
 test('CLI algorithms command separates tested vs available lists', () => {
   const result = runCli(['algorithms']);
   assert.equal(result.status, 0, result.stderr);
-  assert.ok(result.stdout.includes('Tested algorithms'));
+  assert.ok(result.stdout.includes('Default v2 profile'));
+  assert.ok(result.stdout.includes('Tested legacy algorithms'));
   assert.ok(result.stdout.includes('aes-256-cbc'));
   assert.ok(result.stdout.includes('Additional algorithms'));
 });
@@ -196,7 +232,7 @@ test('CLI keygen respects length and format overrides', () => {
   assert.ok(match);
 });
 
-test('CLI encrypts and decrypts using a custom algorithm', () => {
+test('CLI decrypt infers an explicitly selected legacy encryption algorithm', () => {
   const input = {
     db: {
       password: 'custom'
@@ -209,6 +245,7 @@ test('CLI encrypts and decrypts using a custom algorithm', () => {
     filePath,
     '--key',
     KEY,
+    '--legacy',
     '--algorithm',
     'chacha20-poly1305'
   ]);
@@ -218,14 +255,27 @@ test('CLI encrypts and decrypts using a custom algorithm', () => {
     'decrypt',
     filePath,
     '--key',
-    KEY,
-    '--algorithm',
-    'chacha20-poly1305'
+    KEY
   ]);
   assert.equal(decryptResult.status, 0, decryptResult.stderr);
 
   const finalContent = JSON.parse(readFileSync(filePath, 'utf8'));
   assert.deepEqual(finalContent, input);
+});
+
+test('CLI decrypt rejects algorithm overrides because payload metadata is authoritative', () => {
+  const filePath = createTempFile({ value: 'secret' });
+  const result = runCli([
+    'decrypt',
+    filePath,
+    '--key',
+    KEY,
+    '--algorithm',
+    'chacha20-poly1305'
+  ]);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /\[yamlock:ERR_INVALID_OPTION]/);
 });
 
 test('CLI decrypts only specified paths when --paths is provided', () => {
@@ -253,7 +303,7 @@ test('CLI decrypts only specified paths when --paths is provided', () => {
 });
 
 test('CLI migrates legacy payloads in place with backup and preserved permissions', () => {
-  const legacy = encryptValue('secret', KEY, 'db.password');
+  const legacy = encryptLegacy('secret', 'db.password');
   const filePath = createTempFile({ db: { password: legacy, user: 'app' } });
   const backupPath = `${filePath}.yamlock.bak`;
   chmodSync(filePath, 0o640);
@@ -281,7 +331,7 @@ test('CLI migrates legacy payloads in place with backup and preserved permission
 });
 
 test('CLI migration dry-run leaves input and backups untouched', () => {
-  const legacy = encryptValue('dry-run-secret', KEY, 'value');
+  const legacy = encryptLegacy('dry-run-secret', 'value');
   const filePath = createTempFile({ value: legacy, note: 'visible-plaintext' });
   const originalRaw = readFileSync(filePath, 'utf8');
 
@@ -305,7 +355,7 @@ test('CLI migration dry-run leaves input and backups untouched', () => {
 });
 
 test('CLI migration handles mixed legacy and v2 payloads only with explicit permission', () => {
-  const legacy = encryptValue('old-secret', KEY, 'legacy');
+  const legacy = encryptLegacy('old-secret', 'legacy');
   const v2 = encryptValue('new-secret', KEY, 'modern', { formatVersion: 2 });
   const filePath = createTempFile({ legacy, modern: v2 });
   const originalRaw = readFileSync(filePath, 'utf8');
@@ -334,7 +384,7 @@ test('CLI migration handles mixed legacy and v2 payloads only with explicit perm
 });
 
 test('CLI migration validates every selected value before creating files', () => {
-  const legacy = encryptValue('first-secret', KEY, 'first');
+  const legacy = encryptLegacy('first-secret', 'first');
   const filePath = createTempFile({ first: legacy, second: 'plaintext' });
   const originalRaw = readFileSync(filePath, 'utf8');
 
@@ -348,12 +398,7 @@ test('CLI migration validates every selected value before creating files', () =>
 });
 
 test('CLI migration fails closed on an authenticated legacy payload with the wrong key', () => {
-  const legacy = encryptValue(
-    'authenticated-secret',
-    KEY,
-    'value',
-    'chacha20-poly1305'
-  );
+  const legacy = encryptLegacy('authenticated-secret', 'value', 'chacha20-poly1305');
   const filePath = createTempFile({ value: legacy });
   const originalRaw = readFileSync(filePath, 'utf8');
 
@@ -367,7 +412,7 @@ test('CLI migration fails closed on an authenticated legacy payload with the wro
 });
 
 test('CLI migration can write a separate output without changing the source', () => {
-  const legacy = encryptValue('output-secret', KEY, 'value');
+  const legacy = encryptLegacy('output-secret', 'value');
   const filePath = createTempFile({ value: legacy }, '.yaml');
   const outputPath = `${filePath}.migrated.yaml`;
   const originalRaw = readFileSync(filePath, 'utf8');
@@ -401,7 +446,7 @@ test('CLI migration can write a separate output without changing the source', ()
 });
 
 test('CLI migration refuses to replace an existing backup', () => {
-  const legacy = encryptValue('backup-secret', KEY, 'value');
+  const legacy = encryptLegacy('backup-secret', 'value');
   const filePath = createTempFile({ value: legacy });
   const backupPath = `${filePath}.yamlock.bak`;
   const originalRaw = readFileSync(filePath, 'utf8');
@@ -416,7 +461,7 @@ test('CLI migration refuses to replace an existing backup', () => {
 });
 
 test('CLI migration supports explicit no-backup and leaves all-v2 input unchanged', () => {
-  const legacy = encryptValue('no-backup-secret', KEY, 'value');
+  const legacy = encryptLegacy('no-backup-secret', 'value');
   const filePath = createTempFile({ value: legacy });
 
   const migrated = runCli([
@@ -446,7 +491,7 @@ test('CLI migration supports explicit no-backup and leaves all-v2 input unchange
 });
 
 test('CLI migration refuses symbolic-link inputs', () => {
-  const legacy = encryptValue('link-secret', KEY, 'value');
+  const legacy = encryptLegacy('link-secret', 'value');
   const filePath = createTempFile({ value: legacy });
   const linkPath = `${filePath}.link.json`;
   const originalRaw = readFileSync(filePath, 'utf8');

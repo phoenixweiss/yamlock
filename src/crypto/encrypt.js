@@ -15,10 +15,27 @@ import {
 } from './payload-v2.js';
 
 function isV2Request(input) {
-  return typeof input === 'object' && input !== null && input.formatVersion === V2_FORMAT_VERSION;
+  if (input === undefined) {
+    return true;
+  }
+
+  if (typeof input !== 'object' || input === null) {
+    return false;
+  }
+
+  if (input.formatVersion !== undefined) {
+    return input.formatVersion === V2_FORMAT_VERSION;
+  }
+
+  return !['algorithm', 'keyLength', 'ivLength', 'authTagLength']
+    .some((name) => input[name] !== undefined);
 }
 
 function validateV2Options(input) {
+  if (input === undefined) {
+    return;
+  }
+
   if (input.algorithm !== undefined && input.algorithm !== V2_ALGORITHM) {
     throw new Error(`yamlock v2 only supports ${V2_ALGORITHM}.`);
   }
@@ -42,10 +59,10 @@ function resolveOptions(input) {
  * @param {string} value
  * @param {string|Buffer} key
  * @param {string} fieldPath
- * @param {string|object} [algorithmOptions=DEFAULT_ALGORITHM]
+ * @param {string|object} [algorithmOptions]
  * @returns {string}
  */
-export function encryptValue(value, key, fieldPath, algorithmOptions = DEFAULT_ALGORITHM) {
+export function encryptValue(value, key, fieldPath, algorithmOptions) {
   if (typeof value !== 'string') {
     throw new Error('encryptValue expects the value to be a string.');
   }

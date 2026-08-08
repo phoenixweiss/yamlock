@@ -1,6 +1,8 @@
 # Key Rotation Guidance
 
-This document explains how to rotate encryption keys when using yamlock. Because salts depend on field paths, rotating keys must be done carefully to avoid data loss.
+This document explains how to rotate encryption keys without losing data or
+leaving plaintext in the working tree longer than necessary. V2 authenticates
+the field path and uses a separate random KDF salt for every value.
 
 ## Recommended approach
 
@@ -15,23 +17,29 @@ This document explains how to rotate encryption keys when using yamlock. Because
 
    Reference this file in scripts so rotations stay consistent.
 
-2. **Export decrypted configs**  
-   - Use `yamlock decrypt <file> --key <old-key>` for every file in the manifest.  
-   - Work on a temporary branch or use `git stash`/`git worktree` so plaintext never hits `main`.
+2. **Create recoverable backups**
+   - Copy encrypted inputs to a protected location before changing them.
+   - Keep backup permissions at least as restrictive as the source files.
+   - Do not commit decrypted files, keys, or backup archives.
 
-3. **Set the new key**  
+3. **Export decrypted configs**
+   - Use `yamlock decrypt <file> --key <old-key>` for every file in the manifest.  
+   - Work in a protected temporary directory outside the repository. Do not use `git stash`: it stores plaintext in Git objects.
+
+4. **Set the new key**
    - Generate a fresh key via `yamlock keygen` or your secret manager.  
    - Update `YAMLOCK_KEY` in CI secrets, `.env` files, and deployment platforms. Keep the old key accessible until rotation completes.
 
-4. **Re-encrypt with the new key**  
+5. **Re-encrypt with the new key**
    - Run `yamlock encrypt <file> --key <new-key>` for each file.  
+   - The default writer produces authenticated v2 payloads; do not add `--legacy` unless an older consumer explicitly requires v1.
    - Validate using `yamlock decrypt ... --key <new-key>` to confirm round-trips.
 
-5. **Deploy carefully**  
+6. **Deploy carefully**
    - Ship the updated configs only after all environments know about the new key.  
-   - Monitor logs for `Field path does not match` or `Unsupported algorithm` errors.
+   - Monitor for authentication failures, unsupported payload versions, and missing-key errors.
 
-6. **Retire the old key**  
+7. **Retire the old key**
    - Once every environment reads the re-encrypted configs, revoke the previous key from secret stores.
 
 ## Automation snippet
@@ -52,6 +60,6 @@ Run the script from CI to ensure consistency. Store `OLD_KEY` and `NEW_KEY` via 
 
 ## Tips
 
-- Keep backups (e.g., `git stash` or S3 snapshots) before touching production configs.
-- Use `git update-index --skip-worktree` on decrypted files if they must temporarily exist locally.
+- Keep encrypted backups in protected storage; never put plaintext backups in Git, including stashes.
+- Keep temporary plaintext outside the repository and remove it after verified re-encryption.
 - Audit diffs before committing: only encrypted blobs should change.

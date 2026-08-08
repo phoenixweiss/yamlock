@@ -11,7 +11,7 @@ test('migrateConfig converts selected legacy payloads to v2 without mutating inp
   const input = {
     db: {
       user: 'app',
-      password: encryptValue('secret', KEY, 'db.password')
+      password: encryptValue('secret', KEY, 'db.password', { formatVersion: 1 })
     }
   };
   const snapshot = structuredClone(input);
@@ -90,7 +90,7 @@ test('migrateConfig rejects empty selections and invalid input', () => {
 });
 
 test('migrateConfig does not expose decrypted values after a later failure', () => {
-  const first = encryptValue('first-secret', KEY, 'first');
+  const first = encryptValue('first-secret', KEY, 'first', { formatVersion: 1 });
   const input = {
     first,
     second: 'not-encrypted'

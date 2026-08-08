@@ -14,7 +14,7 @@ test('processConfig encrypts nested string values across objects and arrays', ()
 
   const encrypted = processConfig(input, { mode: 'encrypt', key: KEY });
 
-  assert.notEqual(encrypted.db.password, 'swordfish');
+  assert.match(encrypted.db.password, /^yl\|2\|/);
   assert.notEqual(encrypted.db.host, 'localhost');
   assert.equal(typeof encrypted.features[0], 'string');
   assert.notEqual(encrypted.features[0], 'alpha');

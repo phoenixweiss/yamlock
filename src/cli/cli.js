@@ -47,12 +47,13 @@ Commands:
 
 Options:
   -k, --key <value>        Encryption key (or use YAMLOCK_KEY env).
-  -a, --algorithm <value>  Cipher algorithm (default: aes-256-cbc).
+  -a, --algorithm <value>  Legacy cipher algorithm (encrypt --legacy only).
   -o, --output <file>      Write the result to a different file (otherwise overwrites the input file).
   -p, --paths <p1,p2>      Comma-separated list of field paths to process (dot/bracket notation).
   -d, --dry-run             Preview the operation without modifying files.
   --allow-mixed            (migrate) Authenticate and preserve selected v2 values.
   --no-backup              (migrate) Replace the input without creating <file>.yamlock.bak.
+  --legacy                 (encrypt) Write the legacy v1 format for compatibility.
   --length <bytes>         (keygen) Number of random bytes to generate (default: 32).
   --format <hex|base64>    (keygen) Output format (default: base64).
 `;
@@ -149,7 +150,7 @@ function parseArgs(argv) {
   const result = {
     command: args[0],
     file: undefined,
-    options: { dryRun: false, allowMixed: false, noBackup: false }
+    options: { dryRun: false, allowMixed: false, noBackup: false, legacy: false }
   };
 
   let index = 1;
@@ -189,6 +190,8 @@ function parseArgs(argv) {
       result.options.allowMixed = true;
     } else if (arg === '--no-backup') {
       result.options.noBackup = true;
+    } else if (arg === '--legacy') {
+      result.options.legacy = true;
     }
   }
 
@@ -271,6 +274,10 @@ function validateMigrationSource(filePath, config) {
 function handleMigration({ file, absolutePath, outputPath, config, key, options }) {
   if (options.algorithm !== undefined) {
     throw cliError('ERR_INVALID_OPTION', 'migrate does not accept --algorithm.');
+  }
+
+  if (options.legacy) {
+    throw cliError('ERR_INVALID_OPTION', 'migrate does not accept --legacy.');
   }
 
   validateMigrationSource(absolutePath, config);
@@ -365,13 +372,14 @@ export async function runCli(argv = process.argv) {
     const testedSet = new Set(tested);
     const additional = algorithms.filter((name) => !testedSet.has(name));
 
-    print('Tested algorithms (covered by yamlock fixtures):');
+    print('Default v2 profile: aes-256-gcm with scrypt.');
+    print('\nTested legacy algorithms (covered by yamlock fixtures):');
     tested.forEach((name) => print(`- ${name}`));
 
     if (additional.length > 0) {
       print('\nAdditional algorithms available in this runtime:');
       additional.forEach((name) => print(`- ${name}`));
-      print('\nUse at your own risk; these ciphers are not part of the official test matrix yet.');
+      print('\nAdditional ciphers require explicit legacy mode and are not part of the official test matrix.');
     }
     return exit(0);
   }
@@ -433,10 +441,18 @@ export async function runCli(argv = process.argv) {
     }
 
     if (command === 'encrypt') {
+      if (options.algorithm !== undefined && !options.legacy) {
+        throw cliError(
+          'ERR_INVALID_OPTION',
+          'encrypt requires --legacy when --algorithm is provided.'
+        );
+      }
+
       const result = processConfig(config.data, {
         mode: 'encrypt',
         key,
         algorithm: options.algorithm,
+        formatVersion: options.legacy ? 1 : 2,
         paths: options.paths
       });
       handleWrite({
@@ -452,10 +468,20 @@ export async function runCli(argv = process.argv) {
     }
 
     if (command === 'decrypt') {
+      if (options.legacy) {
+        throw cliError('ERR_INVALID_OPTION', 'decrypt does not accept --legacy.');
+      }
+
+      if (options.algorithm !== undefined) {
+        throw cliError(
+          'ERR_INVALID_OPTION',
+          'decrypt infers the algorithm from the payload and does not accept --algorithm.'
+        );
+      }
+
       const result = processConfig(config.data, {
         mode: 'decrypt',
         key,
-        algorithm: options.algorithm,
         paths: options.paths
       });
       handleWrite({

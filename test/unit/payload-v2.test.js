@@ -40,9 +40,9 @@ function assertAuthenticationFailure(callback) {
   });
 }
 
-test('v2 encryption is opt-in and legacy output remains the default', () => {
-  const legacy = encryptValue('legacy', KEY, FIELD_PATH);
-  const v2 = encryptValue('modern', KEY, FIELD_PATH, { formatVersion: 2 });
+test('v2 encryption is the default and legacy output requires explicit selection', () => {
+  const v2 = encryptValue('modern', KEY, FIELD_PATH);
+  const legacy = encryptValue('legacy', KEY, FIELD_PATH, { formatVersion: 1 });
 
   assert.match(legacy, /^yl\|aes-256-cbc\|/);
   assert.match(v2, /^yl\|2\|aes-256-gcm\|scrypt\|/);

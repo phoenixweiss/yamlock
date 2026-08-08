@@ -4,6 +4,7 @@ const KEY = process.env.YAMLOCK_KEY || 'dev-secret-key';
 
 function simpleValueDemo() {
   console.log('--- encryptValue / decryptValue ---');
+  // New values use the authenticated v2 format by default.
   const payload = encryptValue('swordfish', KEY, 'db.password');
   console.log('Encrypted payload:', payload);
   const original = decryptValue(payload, KEY, 'db.password');

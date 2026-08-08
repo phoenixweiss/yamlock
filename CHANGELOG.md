@@ -4,13 +4,15 @@ All notable changes to this project will be documented in this file. Each step i
 
 ## [Unreleased]
 ### Added
-- Opt-in authenticated payload v2 for the Node.js API through `formatVersion: 2`, using AES-256-GCM, scrypt, strict parsing, and authenticated field-path metadata.
+- Authenticated payload v2 for the Node.js API, using AES-256-GCM, scrypt, strict parsing, and authenticated field-path metadata.
 - Frozen legacy payload fixtures and v2 regression tests for deterministic vectors, tampering, malformed input, mixed-format configs, and resource limits.
 - Payload v2 design documentation covering the threat model, serialized format, compatibility, and staged migration.
 - Safe `yamlock migrate` workflow with dry-run summaries, selective paths, mixed-format validation, explicit backups, separate outputs, and atomic permission-preserving writes.
+- Explicit CLI legacy-write compatibility through `yamlock encrypt --legacy`; custom encryption algorithms require this mode.
 
 ### Changed
-- `decryptValue` and `processConfig` now auto-detect and read both legacy and v2 payloads; legacy encryption remains the default during the compatibility phase.
+- `encryptValue`, `processConfig`, and `yamlock encrypt` now write authenticated v2 payloads by default.
+- `decryptValue` and `processConfig` continue to auto-detect and read both legacy and v2 payloads; API callers can request legacy writing explicitly with `formatVersion: 1` or legacy algorithm options.
 
 ## [0.3.0] - 2025-12-01
 ### Added

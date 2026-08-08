@@ -1,7 +1,7 @@
 # yamlock payload v2 design
 
-Status: Phases A and B are implemented; legacy output remains the default. The
-default-format change is intentionally deferred to Phase C.
+Status: Phases A through C are implemented for the next release. V2 is the
+writer default; legacy writing remains an explicit compatibility mode.
 
 This document defines the intended security and compatibility contract for the
 next yamlock payload format. It is deliberately separate from the current
@@ -69,11 +69,11 @@ Each encryption generates a fresh KDF salt and nonce with
 `crypto.randomBytes()`. A new salt produces a new derived key, while a random
 nonce protects distinct invocations under that key. Neither value is secret.
 
-The initial implementation must benchmark this profile on the supported CI
-platforms before it becomes the default. A local Node.js 22 reference run on
-2026-08-04 averaged approximately 45 ms per `scryptSync` derivation. The
-implementation must remain sequential by default; unbounded parallel scrypt
-calls could exhaust memory.
+The implementation remains sequential by default because unbounded parallel
+scrypt calls could exhaust memory. A local Node.js 22.21.1 reference run on
+Darwin arm64 on 2026-08-09 averaged 41.5 ms per encryption and 41.8 ms per
+decryption across 20 values; encrypting a representative 20-value config took
+845 ms. Hosted Ubuntu CI confirmation remains a release gate before tagging.
 
 ### Secret input encoding
 
@@ -199,18 +199,27 @@ arbitrary payload sizes:
 These initial limits may become documented options later, but decryption must
 always enforce safe hard ceilings before KDF execution.
 
-## API direction
+## API contract
 
-The implementation phase should introduce a format selector without silently
-changing current output:
+V2 is the default writer:
 
 ```js
-encryptValue(value, key, fieldPath, { formatVersion: 2 })
+encryptValue(value, key, fieldPath)
 ```
 
 For v2, arbitrary `algorithm`, `keyLength`, `ivLength`, and `authTagLength`
 overrides are rejected. New secure combinations are added as reviewed profiles,
 not as free-form OpenSSL options.
+
+Legacy writing requires explicit compatibility options:
+
+```js
+encryptValue(value, key, fieldPath, { formatVersion: 1 })
+```
+
+Passing a legacy algorithm string or legacy algorithm options also remains an
+explicit v1 request for API compatibility. The CLI requires `--legacy`; its
+`--algorithm` option is rejected for encryption without that flag.
 
 `decryptValue` detects v1/v2 from the payload. A caller must not need to supply
 the algorithm for v2. `processConfig` propagates the format option and supports
@@ -275,13 +284,15 @@ the key is wrong.
 
 ### Phase C: v2 becomes the writer default
 
-- Switch the default only in a clearly documented release after package and
-  migration smoke tests pass.
-- Keep an explicit legacy-write option for a limited compatibility window.
-- Continue legacy reads so repositories can migrate incrementally.
-- Treat the default-format change as a release-level compatibility decision;
-  update README, changelog, examples, CI fixtures, and key-rotation guidance in
-  the same release preparation.
+- [x] Switch the API and CLI writer defaults after local migration and installed
+  package smoke tests pass.
+- [x] Keep explicit `formatVersion: 1` API compatibility and CLI `--legacy` for
+  a limited transition window.
+- [x] Continue legacy reads so repositories can migrate incrementally.
+- [x] Update README, changelog, examples, test fixtures, and key-rotation
+  guidance for the default change.
+- [ ] Confirm the change in hosted Ubuntu CI, then perform the separately
+  approved version, changelog finalization, tag, and release steps.
 
 ### Phase D: legacy write retirement
 
@@ -309,12 +320,9 @@ the key is wrong.
 
 ## Open implementation gates
 
-- Benchmark scrypt on the complete supported CI matrix and representative
-  configs before locking the writer default.
-- Decide the exact CLI format-selection name for Phase C without overloading
-  the existing decrypt-only algorithm inference. Phase B uses `migrate` and
-  keeps v2 writing out of the existing `encrypt --algorithm` option.
-- Define stable library error classes/codes before exposing v2 publicly.
+- Confirm the recorded Node.js 22 benchmark and full test suite on hosted
+  Ubuntu CI before tagging the default-writer release.
+- Define stable library error classes/codes before declaring the Node.js API stable.
 - Review this design and implementation as application cryptography; passing
   tests alone is not a third-party security audit.
 

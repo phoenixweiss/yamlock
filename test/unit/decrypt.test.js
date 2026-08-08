@@ -10,14 +10,14 @@ import {
 } from '../../fixtures/crypto-fixtures.js';
 
 test('decryptValue returns the original string when metadata matches', () => {
-  const payload = encryptValue('swordfish', KEY, FIELD_PATH);
+  const payload = encryptValue('swordfish', KEY, FIELD_PATH, { formatVersion: 1 });
   const decrypted = decryptValue(payload, KEY, FIELD_PATH);
 
   assert.equal(decrypted, 'swordfish');
 });
 
 test('decryptValue fails when the field path does not match', () => {
-  const payload = encryptValue('token', KEY, FIELD_PATH);
+  const payload = encryptValue('token', KEY, FIELD_PATH, { formatVersion: 1 });
 
   assert.throws(
     () => decryptValue(payload, KEY, 'services.redis.password'),

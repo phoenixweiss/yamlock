@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { encryptValue } from '../../src/crypto/encrypt.js';
+import { parseV2Payload } from '../../src/crypto/payload-v2.js';
 import { parsePayload } from '../../src/crypto/utils.js';
 import {
   ALGORITHM_CASES,
@@ -9,22 +10,23 @@ import {
   TEST_KEY as KEY
 } from '../../fixtures/crypto-fixtures.js';
 
-test('encryptValue returns a yamlock payload with encoded salt', () => {
+test('encryptValue writes authenticated v2 payloads by default', () => {
   const encrypted = encryptValue('swordfish', KEY, FIELD_PATH);
-  const payload = parsePayload(encrypted);
+  const payload = parseV2Payload(encrypted);
 
-  assert.equal(payload.algorithm, 'aes-256-cbc');
-  assert.equal(payload.salt, Buffer.from(FIELD_PATH, 'utf8').toString('base64'));
-  assert.ok(payload.iv.byteLength > 0);
-  assert.ok(payload.data.byteLength > 0);
+  assert.equal(payload.algorithm, 'aes-256-gcm');
+  assert.equal(payload.storedFieldPath, FIELD_PATH);
+  assert.equal(payload.nonce.byteLength, 12);
+  assert.equal(payload.authTag.byteLength, 16);
 });
 
-test('encryptValue uses a different IV for each call', () => {
-  const first = parsePayload(encryptValue('matching', KEY, FIELD_PATH));
-  const second = parsePayload(encryptValue('matching', KEY, FIELD_PATH));
+test('encryptValue uses fresh v2 material for each default call', () => {
+  const first = parseV2Payload(encryptValue('matching', KEY, FIELD_PATH));
+  const second = parseV2Payload(encryptValue('matching', KEY, FIELD_PATH));
 
-  assert.notEqual(first.iv.toString('base64'), second.iv.toString('base64'));
-  assert.notEqual(first.data.toString('base64'), second.data.toString('base64'));
+  assert.notDeepEqual(first.kdfSalt, second.kdfSalt);
+  assert.notDeepEqual(first.nonce, second.nonce);
+  assert.notDeepEqual(first.ciphertext, second.ciphertext);
 });
 
 test('encryptValue enforces string inputs and supported algorithms', () => {
@@ -42,8 +44,11 @@ test('encryptValue supports algorithm option overrides', () => {
   assert.equal(payload.iv.byteLength, 12);
 });
 ALGORITHM_CASES.forEach(({ name, ivLength }) => {
-  test(`encryptValue encodes payload metadata for ${name}`, () => {
-    const encrypted = encryptValue('value', KEY, FIELD_PATH, { algorithm: name });
+  test(`encryptValue writes explicit legacy payload metadata for ${name}`, () => {
+    const encrypted = encryptValue('value', KEY, FIELD_PATH, {
+      formatVersion: 1,
+      algorithm: name
+    });
     const payload = parsePayload(encrypted);
 
     assert.equal(payload.algorithm, name);

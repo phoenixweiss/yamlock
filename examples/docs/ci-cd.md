@@ -1,6 +1,7 @@
 # CI/CD Example: locking configs before deployment
 
-This example shows how to decrypt configs for build-time use and re-encrypt them before artifacts are published.
+This example shows how to decrypt configs for build-time use and re-encrypt
+them with the default authenticated v2 format before artifacts are published.
 
 ```yaml
 # .github/workflows/deploy.yml
@@ -40,4 +41,6 @@ jobs:
           YAMLOCK_KEY: ${{ secrets.YAMLOCK_KEY }}
 ```
 
-Adjust the paths/filenames as needed. Keeping encryption in the pipeline ensures accidental plaintext commits never land in the repository.
+Adjust the paths/filenames as needed. Keeping encryption in the pipeline helps
+prevent accidental plaintext commits. Add `--legacy` only when a consumer has a
+temporary, documented requirement for v1 payloads.

@@ -34,7 +34,7 @@ yarn add yamlock            # project dependency
 
 ## Features
 
-- Encrypt/decrypt individual configuration values with deterministic field-path salts.
+- Encrypt/decrypt individual values with authenticated field-path metadata.
 - CLI workflow that processes YAML or JSON files in place.
 - Safe CLI migration from legacy payloads to authenticated v2 payloads.
 - Recursively lock/unlock entire objects via `processConfig`.
@@ -49,8 +49,8 @@ yarn add yamlock            # project dependency
 # Encrypt values in a YAML file
 YAMLOCK_KEY="super-secret" yamlock encrypt config.yaml
 
-# Decrypt values in place using explicit key/algorithm flags
-yamlock decrypt settings.json --key "super-secret" --algorithm aes-256-cbc
+# Decrypt values in place; the payload determines its format and algorithm
+yamlock decrypt settings.json --key "super-secret"
 
 # Encrypt only selected fields into a new file
 yamlock encrypt config.json --key "$YAMLOCK_KEY" --paths "db.password,api.token" --output config.secure.json
@@ -67,6 +67,9 @@ yamlock encrypt config.yml -o config.enc.yml -p db.password -k "my-secret-key" -
 
 # Preview a legacy-to-v2 migration without printing config contents
 yamlock migrate config.yml -k "$YAMLOCK_KEY" -p db.password -d
+
+# Explicitly write legacy v1 for a temporary compatibility requirement
+yamlock encrypt config.yml -k "$YAMLOCK_KEY" --legacy --algorithm aes-256-cbc
 ```
 
 The CLI detects YAML (`.yaml`/`.yml`) and JSON extensions automatically and writes the file back in the same format.
@@ -78,8 +81,9 @@ Options of note:
 - `migrate` decrypts selected legacy payloads and re-encrypts them as authenticated v2 payloads.
 - `migrate --allow-mixed` additionally authenticates and preserves selected values that are already v2.
 - In-place migration creates `<file>.yamlock.bak` by default; `--no-backup` disables it explicitly.
+- `encrypt --legacy` writes the legacy v1 format; `--algorithm` is accepted for encryption only together with `--legacy`.
 - Command `keygen` produces a random key and shows how to store it (shell export or `.env`).
-- Command `algorithms` prints two lists: tested presets (covered by yamlock) and additional ciphers available from the runtime.
+- Command `algorithms` prints the fixed v2 profile, tested legacy presets, and additional legacy ciphers available from the runtime.
 - Command `version` prints the installed CLI version.
 
 ### Node.js API
@@ -97,12 +101,14 @@ const unlocked = processConfig(locked, { mode: 'decrypt', key: process.env.YAMLO
 
 See `examples/basic.js` for a runnable end-to-end script (`node examples/basic.js`).
 
-### Algorithm customization
+### Legacy algorithm customization
 
-Each function accepts either a cipher name or an options object:
+V2 deliberately has no free-form cipher settings. For temporary legacy
+compatibility, select format version 1 and provide the old cipher options:
 
 ```js
 const encrypted = encryptValue('swordfish', KEY, 'db.password', {
+  formatVersion: 1,
   algorithm: 'chacha20-poly1305',
   ivLength: 12 // override the IV size used during encryption
 });
@@ -117,6 +123,7 @@ const processed = processConfig(
   {
     mode: 'encrypt',
     key: KEY,
+    formatVersion: 1,
     algorithm: { algorithm: 'aes-192-cbc', ivLength: 24 }
   }
 );
@@ -125,6 +132,7 @@ const processed = processConfig(
 const restored = processConfig(processed, {
   mode: 'decrypt',
   key: KEY,
+  formatVersion: 1,
   algorithm: { algorithm: 'aes-192-cbc', ivLength: 24 }
 });
 
@@ -153,20 +161,18 @@ const lockedUsers = processConfig(
 );
 ```
 
-### Authenticated payload v2 (opt-in)
+### Authenticated payload v2 (default)
 
-yamlock can write the proposed authenticated v2 format through the Node.js API.
-Legacy output remains the default during the compatibility phase, while
-`decryptValue` and `processConfig` automatically read both formats.
+`encryptValue`, `processConfig`, and `yamlock encrypt` write authenticated v2
+payloads by default. `decryptValue` and `processConfig` automatically read both
+v1 and v2.
 
 ```js
-const encrypted = encryptValue('swordfish', KEY, 'db.password', {
-  formatVersion: 2
-});
+const encrypted = encryptValue('swordfish', KEY, 'db.password');
 
 const locked = processConfig(
   { db: { password: 'swordfish' } },
-  { mode: 'encrypt', key: KEY, formatVersion: 2 }
+  { mode: 'encrypt', key: KEY }
 );
 
 // No format or algorithm option is required when decrypting.
@@ -179,8 +185,7 @@ authentication tag, and scrypt with a separate random KDF salt. The field path
 and security-critical metadata are authenticated. Free-form cipher and size
 overrides are intentionally unavailable for v2.
 
-The `encrypt` command continues to write the legacy format during the
-compatibility phase. Existing files can be migrated safely with the CLI:
+Existing legacy files can be migrated safely with the CLI:
 
 ```bash
 # Preview counts and target paths; config contents are not printed.
@@ -217,40 +222,47 @@ not received a third-party security audit.
 
 ### Supported algorithms
 
-| Algorithm | Type | Notes |
-|-----------|------|-------|
-| `aes-128-cbc` | Block cipher (CBC) | 128-bit keys, 16-byte IV. Works well for backward-compatibility scenarios. |
-| `aes-192-cbc` | Block cipher (CBC) | 192-bit keys, 16-byte IV. Slightly stronger than AES-128 with the same IV requirements. |
-| `aes-256-cbc` (default) | Block cipher (CBC) | 256-bit keys, 16-byte IV. Balanced combination of strength and compatibility. |
-| `chacha20-poly1305` | AEAD stream cipher | 256-bit keys, 12-byte nonce, 16-byte auth tag. Provides built-in integrity/authentication. |
+| Algorithm | Format | Notes |
+|-----------|--------|-------|
+| `aes-256-gcm` | v2 default | Fixed authenticated profile with scrypt, a 12-byte nonce, and a 16-byte tag. |
+| `aes-128-cbc` | legacy v1 | Compatibility only; ciphertext and metadata are not authenticated. |
+| `aes-192-cbc` | legacy v1 | Compatibility only; ciphertext and metadata are not authenticated. |
+| `aes-256-cbc` | legacy v1 | Compatibility default when `--legacy` is used without `--algorithm`. |
+| `chacha20-poly1305` | legacy v1 | Authenticates ciphertext, but not all serialized metadata protected by v2. |
 
-You can also pass any algorithm supported by the current Node.js runtime (`crypto.getCiphers()`), along with custom `keyLength`, `ivLength`, or `authTagLength` overrides. Only the algorithms above are actively tested; additional presets may be added or revised in future releases.
+Additional algorithms exposed by `crypto.getCiphers()` are available only in
+explicit legacy mode and are not part of the supported v2 profile. Prefer the
+default v2 writer for new data.
 
 ## Release information
 
 - The badges at the top show the latest npm version and the status of the Node test suite.
 - See [CHANGELOG.md](CHANGELOG.md) for detailed release notes; install a specific tag via `npm install yamlock@<version>`.
 
-### Encrypted value format
+### Encrypted value formats
 
-Every locked string follows the format:
+New values use the authenticated v2 envelope:
+
+```txt
+yl|2|aes-256-gcm|scrypt|32768|8|1|<kdf_salt>|<nonce>|<path>|<ciphertext>|<tag>
+```
+
+Legacy values remain readable and can still be written explicitly:
 
 ```txt
 yl|<algorithm>|<salt_base64>|<iv_base64>|<data_base64>
 ```
 
-Where:
-- `yl` - format marker prefix
-- `<algorithm>` - algorithm name (e.g., aes-256-cbc)
-- `<salt_base64>` - Base64-encoded field path
-- `<iv_base64>` - Base64-encoded initialization vector
-- `<data_base64>` - Base64-encoded encrypted data
+The legacy name `<salt_base64>` is historical: that segment is only the
+Base64-encoded field path and is not a random salt or KDF input.
 
-The salt is derived from the full field path. Moving or renaming the field invalidates the salt, preventing accidental decryption in the wrong location.
+See [the payload v2 design](docs/design/payload-v2.md) for the canonical field
+definitions, limits, compatibility rules, and legacy security limitations.
 
 ### Key rotation
 
-See [docs/key-rotation.md](docs/key-rotation.md) for a step-by-step guide to rotating `YAMLOCK_KEY` without losing data.
+See [the key rotation guide](examples/docs/key-rotation.md) for a step-by-step
+workflow that re-encrypts values with v2 and a new `YAMLOCK_KEY`.
 
 ## Inspiration and motivation
 
@@ -273,9 +285,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development workflow, available scrip
 
 ## Future work
 
-- Additional cipher presets and stronger default algorithms.
-- More CLI/API examples for rotating keys, selective field targeting, and CI automation.
-- Configurable behavior for non-string values (skip vs. coerce) and stricter file format validation.
+- Stable public error classes and codes for the Node.js API.
+- An async encryption API with bounded scrypt concurrency for large configs.
+- Stricter file-format validation and preservation rules for advanced YAML features.
 
 ## Author
 
