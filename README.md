@@ -82,6 +82,8 @@ Options of note:
 - `migrate --allow-mixed` additionally authenticates and preserves selected values that are already v2.
 - In-place migration creates `<file>.yamlock.bak` by default; `--no-backup` disables it explicitly.
 - `encrypt --legacy` writes the legacy v1 format; `--algorithm` is accepted for encryption only together with `--legacy`.
+- `encrypt --error-on-encrypted` fails when a selected value is already encrypted instead of preserving it.
+- `encrypt --force-encrypt` explicitly treats selected `yl|...` strings as plaintext and adds another encryption layer.
 - Command `keygen` produces a random key and shows how to store it (shell export or `.env`).
 - Command `algorithms` prints the fixed v2 profile, tested legacy presets, and additional legacy ciphers available from the runtime.
 - Command `version` prints the installed CLI version.
@@ -98,6 +100,30 @@ const config = { db: { password: 'swordfish' } };
 const locked = processConfig(config, { mode: 'encrypt', key: process.env.YAMLOCK_KEY });
 const unlocked = processConfig(locked, { mode: 'decrypt', key: process.env.YAMLOCK_KEY });
 ```
+
+Repeated encryption is safe by default. `processConfig` authenticates selected
+existing payloads with the supplied key and field path, preserves them
+unchanged, and encrypts only selected plaintext values. Use
+`existingPayloadPolicy: 'error'` when existing encrypted values should fail the
+operation:
+
+```js
+processConfig(config, {
+  mode: 'encrypt',
+  key: process.env.YAMLOCK_KEY,
+  existingPayloadPolicy: 'error'
+});
+```
+
+Malformed payloads, incorrect keys, and incorrect field paths are never silently
+skipped. Re-running `yamlock encrypt` on a fully encrypted input does not rewrite
+the source file. Use `yamlock migrate` rather than `encrypt` to convert preserved
+legacy values to v2.
+
+If plaintext intentionally begins with `yl|`, use
+`existingPayloadPolicy: 'encrypt'` or CLI `--force-encrypt`. This also permits
+deliberate nested encryption, so it should not be enabled in routine workflows;
+each added layer requires a matching decrypt operation.
 
 See `examples/basic.js` for a runnable end-to-end script (`node examples/basic.js`).
 
@@ -216,6 +242,7 @@ not received a third-party security audit.
 ## Advanced usage
 
 - **Selective encryption**: combine `--paths` on the CLI or `paths: []` in `processConfig` to encrypt only sensitive sections of a config file.
+- **Repeated encryption**: valid selected payloads are authenticated and preserved; add `--error-on-encrypted` or `existingPayloadPolicy: 'error'` for strict workflows.
 - **Non-string handling**: use `nonStringPolicy: 'ignore' | 'stringify' | 'error'` to control how numbers/objects are treated, and `pathSerializer` to change how traversal paths are represented (e.g., `db/password` instead of dot notation).
 - **CI/CD flows**: see [examples/docs/ci-cd.md](examples/docs/ci-cd.md) for a GitHub Actions job that decrypts configs for builds and re-encrypts them before publishing artifacts.
 - **Key rotation**: follow [examples/docs/key-rotation.md](examples/docs/key-rotation.md) for a step-by-step process, including scripting tips for large repos.

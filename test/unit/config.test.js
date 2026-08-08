@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+import { decryptValue } from '../../src/crypto/decrypt.js';
+import { encryptValue } from '../../src/crypto/encrypt.js';
 import { processConfig } from '../../src/utils/config.js';
 import {
   ALGORITHM_NAMES,
@@ -93,6 +95,77 @@ test('processConfig ignores non-existent paths without modifying data', () => {
     paths: ['non.existent.path']
   });
   assert.deepEqual(encrypted, input);
+});
+
+test('processConfig preserves valid encrypted values and encrypts remaining plaintext', () => {
+  const modern = encryptValue('modern-secret', KEY, 'modern');
+  const legacy = encryptValue('legacy-secret', KEY, 'legacy', { formatVersion: 1 });
+  const input = {
+    modern,
+    legacy,
+    plaintext: 'new-secret'
+  };
+
+  const encrypted = processConfig(input, { mode: 'encrypt', key: KEY });
+  assert.equal(encrypted.modern, modern);
+  assert.equal(encrypted.legacy, legacy);
+  assert.match(encrypted.plaintext, /^yl\|2\|/);
+
+  const repeated = processConfig(encrypted, { mode: 'encrypt', key: KEY });
+  assert.deepEqual(repeated, encrypted);
+});
+
+test('processConfig can fail when a selected value is already encrypted', () => {
+  const payload = encryptValue('secret', KEY, 'value');
+
+  assert.throws(
+    () => processConfig(
+      { value: payload },
+      { mode: 'encrypt', key: KEY, existingPayloadPolicy: 'error' }
+    ),
+    (error) => error.code === 'ERR_ALREADY_ENCRYPTED'
+  );
+});
+
+test('processConfig requires an explicit policy to encrypt yl-prefixed plaintext', () => {
+  const payload = encryptValue('secret', KEY, 'value');
+  const encrypted = processConfig(
+    { value: payload },
+    { mode: 'encrypt', key: KEY, existingPayloadPolicy: 'encrypt' }
+  );
+
+  assert.notEqual(encrypted.value, payload);
+  assert.equal(decryptValue(encrypted.value, KEY, 'value'), payload);
+});
+
+test('processConfig authenticates existing payloads before preserving them', () => {
+  const payload = encryptValue('secret', KEY, 'value');
+
+  assert.throws(
+    () => processConfig({ value: payload }, { mode: 'encrypt', key: 'wrong-key' }),
+    (error) => error.code === 'ERR_AUTHENTICATION_FAILED'
+  );
+  assert.throws(
+    () => processConfig({ value: 'yl|2|broken' }, { mode: 'encrypt', key: KEY }),
+    /expected 12 fields/i
+  );
+});
+
+test('processConfig validates existingPayloadPolicy usage', () => {
+  assert.throws(
+    () => processConfig(
+      { value: 'secret' },
+      { mode: 'encrypt', key: KEY, existingPayloadPolicy: 'unknown' }
+    ),
+    (error) => error.code === 'ERR_INVALID_EXISTING_PAYLOAD_POLICY'
+  );
+  assert.throws(
+    () => processConfig(
+      { value: 'secret' },
+      { mode: 'decrypt', key: KEY, existingPayloadPolicy: 'preserve' }
+    ),
+    (error) => error.code === 'ERR_INVALID_EXISTING_PAYLOAD_POLICY'
+  );
 });
 
 test('processConfig stringifies non-string values when policy=stringify', () => {

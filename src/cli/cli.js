@@ -15,6 +15,7 @@ import { basename, dirname, extname, join, resolve } from 'node:path';
 import { exit } from 'node:process';
 import { createRequire } from 'node:module';
 import { randomBytes } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 
 import yaml from 'js-yaml';
 
@@ -54,6 +55,8 @@ Options:
   --allow-mixed            (migrate) Authenticate and preserve selected v2 values.
   --no-backup              (migrate) Replace the input without creating <file>.yamlock.bak.
   --legacy                 (encrypt) Write the legacy v1 format for compatibility.
+  --error-on-encrypted     (encrypt) Fail if a selected value is already encrypted.
+  --force-encrypt          (encrypt) Encrypt selected yl|... strings as plaintext.
   --length <bytes>         (keygen) Number of random bytes to generate (default: 32).
   --format <hex|base64>    (keygen) Output format (default: base64).
 `;
@@ -150,7 +153,14 @@ function parseArgs(argv) {
   const result = {
     command: args[0],
     file: undefined,
-    options: { dryRun: false, allowMixed: false, noBackup: false, legacy: false }
+    options: {
+      dryRun: false,
+      allowMixed: false,
+      noBackup: false,
+      legacy: false,
+      errorOnEncrypted: false,
+      forceEncrypt: false
+    }
   };
 
   let index = 1;
@@ -192,6 +202,10 @@ function parseArgs(argv) {
       result.options.noBackup = true;
     } else if (arg === '--legacy') {
       result.options.legacy = true;
+    } else if (arg === '--error-on-encrypted') {
+      result.options.errorOnEncrypted = true;
+    } else if (arg === '--force-encrypt') {
+      result.options.forceEncrypt = true;
     }
   }
 
@@ -278,6 +292,17 @@ function handleMigration({ file, absolutePath, outputPath, config, key, options 
 
   if (options.legacy) {
     throw cliError('ERR_INVALID_OPTION', 'migrate does not accept --legacy.');
+  }
+
+  if (options.errorOnEncrypted) {
+    throw cliError(
+      'ERR_INVALID_OPTION',
+      'migrate does not accept --error-on-encrypted.'
+    );
+  }
+
+  if (options.forceEncrypt) {
+    throw cliError('ERR_INVALID_OPTION', 'migrate does not accept --force-encrypt.');
   }
 
   validateMigrationSource(absolutePath, config);
@@ -447,14 +472,29 @@ export async function runCli(argv = process.argv) {
           'encrypt requires --legacy when --algorithm is provided.'
         );
       }
+      if (options.errorOnEncrypted && options.forceEncrypt) {
+        throw cliError(
+          'ERR_INVALID_OPTION',
+          'encrypt cannot combine --error-on-encrypted with --force-encrypt.'
+        );
+      }
 
       const result = processConfig(config.data, {
         mode: 'encrypt',
         key,
         algorithm: options.algorithm,
         formatVersion: options.legacy ? 1 : 2,
+        existingPayloadPolicy: options.forceEncrypt
+          ? 'encrypt'
+          : options.errorOnEncrypted
+            ? 'error'
+            : 'preserve',
         paths: options.paths
       });
+      if (outputPath === absolutePath && isDeepStrictEqual(result, config.data)) {
+        print('No plaintext values required encryption. No files were modified.');
+        return exit(0);
+      }
       handleWrite({
         dryRun: options.dryRun,
         file,
@@ -477,6 +517,17 @@ export async function runCli(argv = process.argv) {
           'ERR_INVALID_OPTION',
           'decrypt infers the algorithm from the payload and does not accept --algorithm.'
         );
+      }
+
+      if (options.errorOnEncrypted) {
+        throw cliError(
+          'ERR_INVALID_OPTION',
+          'decrypt does not accept --error-on-encrypted.'
+        );
+      }
+
+      if (options.forceEncrypt) {
+        throw cliError('ERR_INVALID_OPTION', 'decrypt does not accept --force-encrypt.');
       }
 
       const result = processConfig(config.data, {

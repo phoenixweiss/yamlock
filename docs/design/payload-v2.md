@@ -221,6 +221,14 @@ Passing a legacy algorithm string or legacy algorithm options also remains an
 explicit v1 request for API compatibility. The CLI requires `--legacy`; its
 `--algorithm` option is rejected for encryption without that flag.
 
+High-level configuration encryption is idempotent. Selected values that already
+contain a valid yamlock payload are decrypted for key/path validation and then
+preserved unchanged. `existingPayloadPolicy: 'error'` and CLI
+`--error-on-encrypted` provide a strict failure mode. Encryption never upgrades
+legacy payloads implicitly; callers use the migration workflow for that change.
+The explicit `existingPayloadPolicy: 'encrypt'` / `--force-encrypt` escape hatch
+treats a `yl|...` string as plaintext and may create nested encryption layers.
+
 `decryptValue` detects v1/v2 from the payload. A caller must not need to supply
 the algorithm for v2. `processConfig` propagates the format option and supports
 mixed v1/v2 input during migration.

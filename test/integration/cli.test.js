@@ -74,6 +74,60 @@ test('CLI encrypts and decrypts JSON configs', () => {
   assert.deepEqual(finalContent, input);
 });
 
+test('CLI repeated encrypt preserves authenticated payloads without rewriting the file', () => {
+  const filePath = createTempFile({ value: 'secret' });
+  const first = runCli(['encrypt', filePath, '--key', KEY]);
+  assert.equal(first.status, 0, first.stderr);
+  const encryptedRaw = readFileSync(filePath, 'utf8');
+
+  const repeated = runCli(['encrypt', filePath, '--key', KEY]);
+  assert.equal(repeated.status, 0, repeated.stderr);
+  assert.match(repeated.stdout, /No plaintext values required encryption/);
+  assert.match(repeated.stdout, /No files were modified/);
+  assert.equal(readFileSync(filePath, 'utf8'), encryptedRaw);
+
+  const strict = runCli([
+    'encrypt',
+    filePath,
+    '--key',
+    KEY,
+    '--error-on-encrypted'
+  ]);
+  assert.equal(strict.status, 1);
+  assert.match(strict.stderr, /\[yamlock:ERR_ALREADY_ENCRYPTED]/);
+  assert.equal(readFileSync(filePath, 'utf8'), encryptedRaw);
+
+  const wrongKey = runCli(['encrypt', filePath, '--key', 'wrong-key']);
+  assert.equal(wrongKey.status, 1);
+  assert.match(wrongKey.stderr, /\[yamlock:ERR_AUTHENTICATION_FAILED]/);
+  assert.equal(readFileSync(filePath, 'utf8'), encryptedRaw);
+
+  const conflicting = runCli([
+    'encrypt',
+    filePath,
+    '--key',
+    KEY,
+    '--error-on-encrypted',
+    '--force-encrypt'
+  ]);
+  assert.equal(conflicting.status, 1);
+  assert.match(conflicting.stderr, /\[yamlock:ERR_INVALID_OPTION]/);
+  assert.equal(readFileSync(filePath, 'utf8'), encryptedRaw);
+
+  const forced = runCli([
+    'encrypt',
+    filePath,
+    '--key',
+    KEY,
+    '--force-encrypt'
+  ]);
+  assert.equal(forced.status, 0, forced.stderr);
+  const forcedConfig = JSON.parse(readFileSync(filePath, 'utf8'));
+  const originalPayload = JSON.parse(encryptedRaw).value;
+  assert.notEqual(forcedConfig.value, originalPayload);
+  assert.equal(decryptValue(forcedConfig.value, KEY, 'value'), originalPayload);
+});
+
 test('CLI encrypts and decrypts YAML configs', () => {
   const input = {
     services: {
@@ -160,6 +214,14 @@ test('CLI encrypts only specified paths when --paths is provided', () => {
   assert.equal(afterEncrypt.api.url, input.api.url);
   assert.notEqual(afterEncrypt.db.password, input.db.password);
   assert.notEqual(afterEncrypt.api.token, input.api.token);
+
+  const completeResult = runCli(['encrypt', filePath, '--key', KEY]);
+  assert.equal(completeResult.status, 0, completeResult.stderr);
+  const completed = JSON.parse(readFileSync(filePath, 'utf8'));
+  assert.equal(completed.db.password, afterEncrypt.db.password);
+  assert.equal(completed.api.token, afterEncrypt.api.token);
+  assert.match(completed.db.user, /^yl\|2\|/);
+  assert.match(completed.api.url, /^yl\|2\|/);
 });
 
 test('CLI writes to a separate file when --output is used', () => {

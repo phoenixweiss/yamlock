@@ -9,10 +9,13 @@ All notable changes to this project will be documented in this file. Each step i
 - Payload v2 design documentation covering the threat model, serialized format, compatibility, and staged migration.
 - Safe `yamlock migrate` workflow with dry-run summaries, selective paths, mixed-format validation, explicit backups, separate outputs, and atomic permission-preserving writes.
 - Explicit CLI legacy-write compatibility through `yamlock encrypt --legacy`; custom encryption algorithms require this mode.
+- Strict repeated-encryption checks through CLI `--error-on-encrypted` and Node.js `existingPayloadPolicy: 'error'`.
+- Explicit `--force-encrypt` / `existingPayloadPolicy: 'encrypt'` handling for intentional `yl|...` plaintext or nested encryption.
 
 ### Changed
 - `encryptValue`, `processConfig`, and `yamlock encrypt` now write authenticated v2 payloads by default.
 - `decryptValue` and `processConfig` continue to auto-detect and read both legacy and v2 payloads; API callers can request legacy writing explicitly with `formatVersion: 1` or legacy algorithm options.
+- Repeated `processConfig`/CLI encryption now authenticates and preserves existing payloads instead of adding another encryption layer; fully encrypted in-place inputs are not rewritten.
 
 ## [0.3.0] - 2025-12-01
 ### Added
