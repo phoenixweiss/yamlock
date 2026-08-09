@@ -184,6 +184,56 @@ test('processConfig only processes specified paths', () => {
   assert.deepEqual(decrypted, input);
 });
 
+test('processConfig selects reserved object keys without path collisions', () => {
+  const input = {
+    'a.b': 'root-dot',
+    a: { b: 'nested-dot' },
+    'items[0]': 'object-brackets',
+    items: ['array-index'],
+    'comma,key': 'comma',
+    'slash\\key': 'slash'
+  };
+  const paths = [
+    String.raw`a\.b`,
+    String.raw`items\[0\]`,
+    String.raw`comma\,key`,
+    String.raw`slash\\key`
+  ];
+
+  const encrypted = processConfig(input, {
+    mode: 'encrypt',
+    key: KEY,
+    paths
+  });
+
+  assert.match(encrypted['a.b'], /^yl\|2\|/);
+  assert.match(encrypted['items[0]'], /^yl\|2\|/);
+  assert.match(encrypted['comma,key'], /^yl\|2\|/);
+  assert.match(encrypted['slash\\key'], /^yl\|2\|/);
+  assert.equal(encrypted.a.b, 'nested-dot');
+  assert.equal(encrypted.items[0], 'array-index');
+
+  const decrypted = processConfig(encrypted, {
+    mode: 'decrypt',
+    key: KEY,
+    paths
+  });
+  assert.deepEqual(decrypted, input);
+});
+
+test('processConfig reads payloads written with legacy ambiguous paths', () => {
+  for (const formatVersion of [1, 2]) {
+    const payload = encryptValue('legacy-path-secret', KEY, 'a.b', { formatVersion });
+    const input = { 'a.b': payload };
+
+    assert.deepEqual(
+      processConfig(input, { mode: 'decrypt', key: KEY }),
+      { 'a.b': 'legacy-path-secret' }
+    );
+    assert.deepEqual(processConfig(input, { mode: 'encrypt', key: KEY }), input);
+  }
+});
+
 test('processConfig ignores non-existent paths without modifying data', () => {
   const input = sampleConfig('value');
   const encrypted = processConfig(input, {

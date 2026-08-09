@@ -33,6 +33,21 @@ test('migrateConfig converts selected legacy payloads to v2 without mutating inp
   assert.equal(result.data.db.user, 'app');
 });
 
+test('migrateConfig upgrades payloads with legacy ambiguous field paths', () => {
+  const legacy = encryptValue('special-secret', KEY, 'a.b', { formatVersion: 1 });
+  const result = migrateConfig(
+    { 'a.b': legacy, a: { b: 'nested-plaintext' } },
+    { key: KEY, paths: [String.raw`a\.b`] }
+  );
+
+  assert.equal(result.stats.migrated, 1);
+  assert.equal(result.data.a.b, 'nested-plaintext');
+  assert.equal(
+    decryptValue(result.data['a.b'], KEY, String.raw`a\.b`),
+    'special-secret'
+  );
+});
+
 test('migrateConfig authenticates and preserves v2 values only when allowed', () => {
   const v2 = encryptValue('modern', KEY, 'token', { formatVersion: 2 });
 

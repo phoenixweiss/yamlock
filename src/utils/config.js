@@ -2,7 +2,7 @@ import { encryptValue } from '../crypto/encrypt.js';
 import { decryptValue } from '../crypto/decrypt.js';
 import { detectPayloadVersion } from '../crypto/payload-v2.js';
 import { isYamlockPayload } from '../crypto/utils.js';
-import { buildPath } from './path.js';
+import { serializeLegacyPath, serializePath } from './path.js';
 
 const MODES = {
   ENCRYPT: 'encrypt',
@@ -69,12 +69,12 @@ function normalizePaths(paths) {
   return new Set(normalized);
 }
 
-function resolveCurrentPath(segments, pathSerializer) {
+function resolveCurrentPaths(segments, pathSerializer) {
   let currentPath;
   try {
     currentPath = pathSerializer
       ? pathSerializer([...segments])
-      : buildPath(segments.slice(0, -1), segments.at(-1));
+      : serializePath(segments);
   } catch (error) {
     throw createConfigError(
       pathSerializer ? 'ERR_INVALID_PATH_SERIALIZER' : 'ERR_INVALID_PATH_SEGMENTS',
@@ -89,7 +89,22 @@ function resolveCurrentPath(segments, pathSerializer) {
     );
   }
 
-  return currentPath;
+  return {
+    currentPath,
+    legacyPath: pathSerializer ? null : serializeLegacyPath(segments)
+  };
+}
+
+function decryptConfigValue(value, key, currentPath, legacyPath, cryptoOptions) {
+  try {
+    return decryptValue(value, key, currentPath, cryptoOptions);
+  } catch (error) {
+    if (!legacyPath || legacyPath === currentPath) {
+      throw error;
+    }
+
+    return decryptValue(value, key, legacyPath, cryptoOptions);
+  }
 }
 
 function stringifyConfigLeaf(value, currentPath) {
@@ -203,7 +218,7 @@ function traverseConfig(node, { mode, key, algorithm, algorithmOptions, formatVe
       const segment = isArrayNode ? Number(rawKey) : rawKey;
       const targetKey = isArrayNode ? segment : rawKey;
       const pathSegments = [...parentPath, segment];
-      const currentPath = resolveCurrentPath(pathSegments, pathSerializer);
+      const { currentPath, legacyPath } = resolveCurrentPaths(pathSegments, pathSerializer);
 
       if (isConfigContainer(originalValue)) {
         if (ancestors.has(originalValue)) {
@@ -268,10 +283,11 @@ function traverseConfig(node, { mode, key, algorithm, algorithmOptions, formatVe
           }
 
           const payloadVersion = detectPayloadVersion(value);
-          decryptValue(
+          decryptConfigValue(
             value,
             key,
             currentPath,
+            legacyPath,
             payloadVersion === 1 ? cryptoOptions : undefined
           );
 
@@ -288,7 +304,13 @@ function traverseConfig(node, { mode, key, algorithm, algorithmOptions, formatVe
 
         result[targetKey] = encryptValue(value, key, currentPath, cryptoOptions);
       } else {
-        result[targetKey] = decryptValue(value, key, currentPath, cryptoOptions);
+        result[targetKey] = decryptConfigValue(
+          value,
+          key,
+          currentPath,
+          legacyPath,
+          cryptoOptions
+        );
       }
     }
 

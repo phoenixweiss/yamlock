@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file. Each step i
 - Strict repeated-encryption checks through CLI `--error-on-encrypted` and Node.js `existingPayloadPolicy: 'error'`.
 - Explicit `--force-encrypt` / `existingPayloadPolicy: 'encrypt'` handling for intentional `yl|...` plaintext or nested encryption.
 - YAML rewrite documentation and regression coverage for comments, formatting, anchors, aliases, merge keys, and explicit/custom tags.
+- Public `serializePath(segments)` helper for constructing canonical field paths without string ambiguity.
 
 ### Changed
 - `encryptValue`, `processConfig`, and `yamlock encrypt` now write authenticated v2 payloads by default.
@@ -24,6 +25,7 @@ All notable changes to this project will be documented in this file. Each step i
 - Normal CLI encrypt/decrypt writes now use the shared atomic temporary-file writer, verify that the source did not change after reading, preserve source or existing-output modes, reject symbolic-link paths, and clean up temporary files after failures.
 - CLI help now warns that YAML presentation details are normalized during writes and points users toward `--dry-run` or `--output` workflows.
 - YAML and JSON parse failures now report sanitized diagnostics without echoing source lines that may contain secrets.
+- Default field paths now escape reserved characters in object keys, CLI path lists understand escaped commas, and existing payloads with legacy ambiguous paths remain readable.
 
 ## [0.3.0] - 2025-12-01
 ### Added

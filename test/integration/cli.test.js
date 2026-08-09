@@ -459,6 +459,46 @@ test('CLI encrypts only specified paths when --paths is provided', () => {
   assert.match(completed.api.url, /^yl\|2\|/);
 });
 
+test('CLI selects escaped object keys without matching nested paths', () => {
+  const input = {
+    'a.b': 'root-dot',
+    a: { b: 'nested-dot' },
+    'items[0]': 'object-brackets',
+    items: ['array-index'],
+    'comma,key': 'comma'
+  };
+  const filePath = createTempFile(input);
+  const paths = String.raw`a\.b,items\[0\],comma\,key`;
+
+  const encryptedResult = runCli([
+    'encrypt',
+    filePath,
+    '--key',
+    KEY,
+    '--paths',
+    paths
+  ]);
+  assert.equal(encryptedResult.status, 0, encryptedResult.stderr);
+
+  const encrypted = JSON.parse(readFileSync(filePath, 'utf8'));
+  assert.match(encrypted['a.b'], /^yl\|2\|/);
+  assert.match(encrypted['items[0]'], /^yl\|2\|/);
+  assert.match(encrypted['comma,key'], /^yl\|2\|/);
+  assert.equal(encrypted.a.b, 'nested-dot');
+  assert.equal(encrypted.items[0], 'array-index');
+
+  const decryptedResult = runCli([
+    'decrypt',
+    filePath,
+    '--key',
+    KEY,
+    '--paths',
+    paths
+  ]);
+  assert.equal(decryptedResult.status, 0, decryptedResult.stderr);
+  assert.deepEqual(JSON.parse(readFileSync(filePath, 'utf8')), input);
+});
+
 test('CLI writes to a separate file when --output is used', () => {
   const input = {
     db: {
@@ -570,6 +610,8 @@ test('CLI help warns about YAML rewrite normalization', () => {
   assert.match(result.stdout, /YAML rewrite note:/);
   assert.match(result.stdout, /not\s+preserved byte-for-byte/);
   assert.match(result.stdout, /--dry-run or --output/);
+  assert.match(result.stdout, /Path syntax:/);
+  assert.match(result.stdout, /db\\\.primary\.token/);
 });
 
 test('CLI algorithms command separates tested vs available lists', () => {

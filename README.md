@@ -86,7 +86,7 @@ and use `--dry-run` or `--output` when presentation details matter.
 
 Options of note:
 - `--output <file>` writes the result to a separate file instead of overwriting the input.
-- `--paths <path1,path2>` targets only the specified fields (dot/bracket notation like `db.password` or `users[0].token`).
+- `--paths <path1,path2>` targets only the specified fields using the [escaped path syntax](#field-path-syntax).
 - `--dry-run` previews an operation without modifying files; encrypt/decrypt print content changes, while migrate prints only counts and target paths.
 - `migrate` decrypts selected legacy payloads and re-encrypts them as authenticated v2 payloads.
 - `migrate --allow-mixed` additionally authenticates and preserves selected values that are already v2.
@@ -103,10 +103,42 @@ positional arguments, and options that do not apply to the selected command.
 Argument errors use structured `[yamlock:ERR_*]` codes and are reported before
 the CLI reads or modifies a configuration file.
 
+### Field path syntax
+
+Default field paths use dots for object nesting and brackets for array indexes:
+`db.password` and `users[0].token`. Inside an object key, backslashes, dots,
+brackets, and commas are escaped with a backslash. For example,
+`db\.primary.token` selects `token` below the literal key `db.primary`, while
+`db.primary.token` selects three nested object keys. Quote escaped CLI paths so
+the shell passes each backslash unchanged:
+
+```bash
+yamlock encrypt config.json --key "$YAMLOCK_KEY" --paths 'db\.primary.token,labels\,primary'
+```
+
+Node.js callers can build the same canonical strings from unambiguous segments:
+
+```js
+import { processConfig, serializePath } from 'yamlock';
+
+const selectedPath = serializePath(['db.primary', 'token']);
+const encrypted = processConfig(config, {
+  mode: 'encrypt',
+  key: process.env.YAMLOCK_KEY,
+  paths: [selectedPath]
+});
+```
+
+New payloads bind authentication to the escaped canonical path. Payloads written
+by older yamlock versions for keys containing reserved characters remain
+readable through the default serializer's compatibility path; selecting those
+keys now requires the canonical escaped spelling. A custom `pathSerializer`
+keeps its own contract and does not use the default compatibility fallback.
+
 ### Node.js API
 
 ```js
-import { encryptValue, decryptValue, processConfig } from 'yamlock';
+import { encryptValue, decryptValue, processConfig, serializePath } from 'yamlock';
 
 const encrypted = encryptValue('swordfish', process.env.YAMLOCK_KEY, 'db.password');
 const decrypted = decryptValue(encrypted, process.env.YAMLOCK_KEY, 'db.password');

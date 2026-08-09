@@ -84,7 +84,7 @@ Options:
   -k, --key <value>        Encryption key (or use YAMLOCK_KEY env).
   -a, --algorithm <value>  Legacy cipher algorithm (encrypt --legacy only).
   -o, --output <file>      Write the result to a different file (otherwise overwrites the input file).
-  -p, --paths <p1,p2>      Comma-separated list of field paths to process (dot/bracket notation).
+  -p, --paths <p1,p2>      Comma-separated escaped field paths to process (dot/bracket notation).
   -d, --dry-run             Preview the operation without modifying files.
   --allow-mixed            (migrate) Authenticate and preserve selected v2 values.
   --no-backup              (migrate) Replace the input without creating <file>.yamlock.bak.
@@ -97,6 +97,10 @@ Options:
 YAML rewrite note:
   Comments, anchors/aliases, explicit tags, quoting, and formatting are not
   preserved byte-for-byte. Use --dry-run or --output before replacing a file.
+
+Path syntax:
+  Object-key backslashes, dots, brackets, and commas must be backslash-escaped.
+  Example: db\\.primary.token selects { "db.primary": { "token": ... } }.
 `;
 }
 
@@ -162,8 +166,27 @@ function parsePaths(value) {
     return [];
   }
 
-  return String(value)
-    .split(',')
+  const paths = [];
+  let current = '';
+  let escaped = false;
+
+  for (const character of String(value)) {
+    if (character === ',' && !escaped) {
+      paths.push(current);
+      current = '';
+      continue;
+    }
+
+    current += character;
+    if (escaped) {
+      escaped = false;
+    } else if (character === '\\') {
+      escaped = true;
+    }
+  }
+  paths.push(current);
+
+  return paths
     .map((segment) => segment.trim())
     .filter((segment) => segment.length > 0);
 }

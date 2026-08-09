@@ -5,7 +5,7 @@ import {
   V2_FORMAT_VERSION
 } from '../crypto/payload-v2.js';
 import { isYamlockPayload } from '../crypto/utils.js';
-import { buildPath } from './path.js';
+import { serializeLegacyPath, serializePath } from './path.js';
 
 function createMigrationError(code, message) {
   const error = new Error(message);
@@ -28,6 +28,18 @@ function setResultValue(result, key, value) {
   });
 }
 
+function decryptMigrationValue(value, key, currentPath, legacyPath) {
+  try {
+    return decryptValue(value, key, currentPath);
+  } catch (error) {
+    if (legacyPath === currentPath) {
+      throw error;
+    }
+
+    return decryptValue(value, key, legacyPath);
+  }
+}
+
 function traverse(node, context) {
   const isArrayNode = Array.isArray(node);
   const result = isArrayNode ? [] : {};
@@ -36,7 +48,8 @@ function traverse(node, context) {
     const segment = isArrayNode ? Number(rawKey) : rawKey;
     const targetKey = isArrayNode ? segment : rawKey;
     const pathSegments = [...context.parentPath, segment];
-    const currentPath = buildPath(context.parentPath, segment);
+    const currentPath = serializePath(pathSegments);
+    const legacyPath = serializeLegacyPath(pathSegments);
 
     if (value !== null && typeof value === 'object') {
       setResultValue(result, targetKey, traverse(value, {
@@ -77,7 +90,7 @@ function traverse(node, context) {
         );
       }
 
-      decryptValue(value, context.key, currentPath);
+      decryptMigrationValue(value, context.key, currentPath, legacyPath);
       setResultValue(result, targetKey, value);
       context.stats.preservedV2 += 1;
       return;
@@ -90,7 +103,7 @@ function traverse(node, context) {
       );
     }
 
-    const plaintext = decryptValue(value, context.key, currentPath);
+    const plaintext = decryptMigrationValue(value, context.key, currentPath, legacyPath);
     setResultValue(
       result,
       targetKey,

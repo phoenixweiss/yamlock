@@ -5,6 +5,7 @@ import {
   encryptValue,
   decryptValue,
   processConfig,
+  serializePath,
   getSupportedAlgorithms
 } from '../../src/index.js';
 
@@ -15,7 +16,12 @@ test('public API exports expected helpers', () => {
   assert.equal(typeof encryptValue, 'function');
   assert.equal(typeof decryptValue, 'function');
   assert.equal(typeof processConfig, 'function');
+  assert.equal(typeof serializePath, 'function');
   assert.equal(typeof getSupportedAlgorithms, 'function');
+});
+
+test('serializePath exposes canonical paths through the public API', () => {
+  assert.equal(serializePath(['db.primary', 'token']), String.raw`db\.primary.token`);
 });
 
 test('getSupportedAlgorithms returns a non-empty list', () => {
