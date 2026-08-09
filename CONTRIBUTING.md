@@ -14,10 +14,12 @@ Thanks for your interest in improving yamlock! This document describes how to se
 2. Install dependencies: `yarn install`
 3. Use these scripts:
    - `yarn lint` – ESLint flat config
-   - `yarn test` – Node test runner for unit + integration suites
-   - `yarn build` – temporary copy of `src` into `dist` for CLI entry point
+   - `yarn test` – Node test runner for unit + integration suites; integration tests invoke `bin/yamlock` in an explicit source mode, so a stale local `dist` cannot affect results
+   - `yarn build` – copy `src` into `dist` for package and distribution checks
 
-Before submitting code, ensure `yarn test` and `yarn lint` pass locally.
+Before submitting code, ensure `yarn lint`, `yarn test`, and `yarn build` pass
+locally. `YAMLOCK_TEST_SOURCE=1` is reserved for the repository integration
+suite; normal CLI and installed-package checks continue to load `dist` first.
 
 ## Issues
 

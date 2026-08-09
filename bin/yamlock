@@ -1,6 +1,14 @@
 #!/usr/bin/env node
 
 async function loadCliEntry() {
+  if (process.env.YAMLOCK_TEST_SOURCE === '1') {
+    const sourceModule = await import('../src/cli/cli.js');
+    if (sourceModule.runCli) {
+      return sourceModule.runCli;
+    }
+    throw new Error('Source CLI entry does not export runCli.');
+  }
+
   try {
     const distModule = await import('../dist/cli/cli.js');
     if (distModule.runCli) {

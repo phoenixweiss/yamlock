@@ -2,8 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   chmodSync,
+  copyFileSync,
   existsSync,
   mkdtempSync,
+  mkdirSync,
   readFileSync,
   statSync,
   symlinkSync,
@@ -27,7 +29,7 @@ const KEY = 'integration-secret-key';
 
 function runCli(args, env = {}) {
   const result = spawnSync('node', [CLI_BIN, ...args], {
-    env: { ...process.env, ...env },
+    env: { ...process.env, ...env, YAMLOCK_TEST_SOURCE: '1' },
     encoding: 'utf8'
   });
   return result;
@@ -52,6 +54,40 @@ function encryptLegacy(value, fieldPath, algorithm = 'aes-256-cbc') {
     algorithm
   });
 }
+
+test('CLI launcher uses explicit source mode instead of stale dist', () => {
+  const root = mkdtempSync(join(tmpdir(), 'yamlock-launcher-'));
+  const binDir = join(root, 'bin');
+  const distDir = join(root, 'dist', 'cli');
+  const sourceDir = join(root, 'src', 'cli');
+  mkdirSync(binDir, { recursive: true });
+  mkdirSync(distDir, { recursive: true });
+  mkdirSync(sourceDir, { recursive: true });
+  writeFileSync(join(root, 'package.json'), JSON.stringify({ type: 'module' }));
+  copyFileSync(CLI_BIN, join(binDir, 'yamlock'));
+  writeFileSync(
+    join(distDir, 'cli.js'),
+    "export function runCli() { console.log('stale-dist'); }\n"
+  );
+  writeFileSync(
+    join(sourceDir, 'cli.js'),
+    "export function runCli() { console.log('current-source'); }\n"
+  );
+
+  const regular = spawnSync('node', [join(binDir, 'yamlock')], {
+    env: { ...process.env, YAMLOCK_TEST_SOURCE: '0' },
+    encoding: 'utf8'
+  });
+  assert.equal(regular.status, 0, regular.stderr);
+  assert.equal(regular.stdout.trim(), 'stale-dist');
+
+  const sourceMode = spawnSync('node', [join(binDir, 'yamlock')], {
+    env: { ...process.env, YAMLOCK_TEST_SOURCE: '1' },
+    encoding: 'utf8'
+  });
+  assert.equal(sourceMode.status, 0, sourceMode.stderr);
+  assert.equal(sourceMode.stdout.trim(), 'current-source');
+});
 
 test('CLI encrypts and decrypts JSON configs', () => {
   const input = {
