@@ -84,9 +84,14 @@ Options of note:
 - `encrypt --legacy` writes the legacy v1 format; `--algorithm` is accepted for encryption only together with `--legacy`.
 - `encrypt --error-on-encrypted` fails when a selected value is already encrypted instead of preserving it.
 - `encrypt --force-encrypt` explicitly treats selected `yl|...` strings as plaintext and adds another encryption layer.
-- Command `keygen` produces a random key and shows how to store it (shell export or `.env`).
+- Command `keygen` produces a random key of 1–4096 whole bytes and shows how to store it (shell export or `.env`).
 - Command `algorithms` prints the fixed v2 profile, tested legacy presets, and additional legacy ciphers available from the runtime.
 - Command `version` prints the installed CLI version.
+
+The CLI rejects unknown or duplicate options, missing option values, extra
+positional arguments, and options that do not apply to the selected command.
+Argument errors use structured `[yamlock:ERR_*]` codes and are reported before
+the CLI reads or modifies a configuration file.
 
 ### Node.js API
 

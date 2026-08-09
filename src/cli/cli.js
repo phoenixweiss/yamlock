@@ -31,6 +31,47 @@ const BANNER = `
 ░░█░░█▀█░█░▀░█░█░░░█░█░█░░░█▀▄░
 ░░▀░░▀░▀░▀░░░▀░▀▀▀░▀▀▀░▀▀▀░▀░▀░`;
 
+const KEYGEN_MIN_LENGTH = 1;
+const KEYGEN_MAX_LENGTH = 4096;
+const FILE_COMMANDS = new Set(['encrypt', 'decrypt', 'migrate']);
+const OPTION_SPECS = [
+  { key: 'key', names: ['-k', '--key'], takesValue: true },
+  { key: 'algorithm', names: ['-a', '--algorithm'], takesValue: true },
+  { key: 'output', names: ['-o', '--output'], takesValue: true },
+  { key: 'paths', names: ['-p', '--paths'], takesValue: true },
+  { key: 'dryRun', names: ['-d', '--dry-run'], takesValue: false },
+  { key: 'allowMixed', names: ['--allow-mixed'], takesValue: false },
+  { key: 'noBackup', names: ['--no-backup'], takesValue: false },
+  { key: 'legacy', names: ['--legacy'], takesValue: false },
+  { key: 'errorOnEncrypted', names: ['--error-on-encrypted'], takesValue: false },
+  { key: 'forceEncrypt', names: ['--force-encrypt'], takesValue: false },
+  { key: 'length', names: ['--length'], takesValue: true },
+  { key: 'format', names: ['--format'], takesValue: true }
+];
+const OPTION_BY_NAME = new Map(
+  OPTION_SPECS.flatMap((spec) => spec.names.map((name) => [name, spec]))
+);
+const OPTION_LABELS = new Map(
+  OPTION_SPECS.map((spec) => [spec.key, spec.names.at(-1)])
+);
+const COMMAND_OPTIONS = new Map([
+  ['encrypt', new Set([
+    'key',
+    'algorithm',
+    'output',
+    'paths',
+    'dryRun',
+    'legacy',
+    'errorOnEncrypted',
+    'forceEncrypt'
+  ])],
+  ['decrypt', new Set(['key', 'output', 'paths', 'dryRun'])],
+  ['migrate', new Set(['key', 'output', 'paths', 'dryRun', 'allowMixed', 'noBackup'])],
+  ['keygen', new Set(['length', 'format'])],
+  ['version', new Set()],
+  ['algorithms', new Set()]
+]);
+
 function getHelpText() {
   return `${BANNER}
 Version: ${packageJson.version}
@@ -57,7 +98,7 @@ Options:
   --legacy                 (encrypt) Write the legacy v1 format for compatibility.
   --error-on-encrypted     (encrypt) Fail if a selected value is already encrypted.
   --force-encrypt          (encrypt) Encrypt selected yl|... strings as plaintext.
-  --length <bytes>         (keygen) Number of random bytes to generate (default: 32).
+  --length <bytes>         (keygen) Random bytes to generate, 1-${KEYGEN_MAX_LENGTH} (default: 32).
   --format <hex|base64>    (keygen) Output format (default: base64).
 `;
 }
@@ -160,65 +201,113 @@ function parseArgs(argv) {
       legacy: false,
       errorOnEncrypted: false,
       forceEncrypt: false
-    }
+    },
+    specifiedOptions: new Set()
   };
 
-  let index = 1;
-  const potentialFile = args[1];
-  if (potentialFile && !potentialFile.startsWith('-')) {
-    result.file = potentialFile;
-    index = 2;
-  } else {
-    index = 1;
-  }
-
-  for (let i = index; i < args.length; i += 1) {
+  for (let i = 1; i < args.length; i += 1) {
     const arg = args[i];
-    const next = args[i + 1];
+    const spec = OPTION_BY_NAME.get(arg);
 
-    if (arg === '-k' || arg === '--key') {
-      result.options.key = next;
+    if (spec) {
+      if (result.specifiedOptions.has(spec.key)) {
+        throw cliError('ERR_DUPLICATE_OPTION', `Option ${OPTION_LABELS.get(spec.key)} was provided more than once.`);
+      }
+      result.specifiedOptions.add(spec.key);
+
+      if (!spec.takesValue) {
+        result.options[spec.key] = true;
+        continue;
+      }
+
+      const next = args[i + 1];
+      const negativeLength = spec.key === 'length' && /^-\d/.test(next ?? '');
+      if (
+        next === undefined ||
+        next === '' ||
+        (next.startsWith('-') && !negativeLength)
+      ) {
+        throw cliError(
+          'ERR_MISSING_OPTION_VALUE',
+          `Option ${OPTION_LABELS.get(spec.key)} requires a value.`
+        );
+      }
+
+      if (spec.key === 'paths') {
+        const paths = parsePaths(next);
+        if (paths.length === 0) {
+          throw cliError(
+            'ERR_INVALID_OPTION_VALUE',
+            'Option --paths requires at least one non-empty field path.'
+          );
+        }
+        result.options.paths = paths;
+      } else {
+        result.options[spec.key] = next;
+      }
       i += 1;
-    } else if (arg === '-a' || arg === '--algorithm') {
-      result.options.algorithm = next;
-      i += 1;
-    } else if (arg === '-o' || arg === '--output') {
-      result.options.output = next;
-      i += 1;
-    } else if (arg === '-p' || arg === '--paths') {
-      result.options.paths = parsePaths(next);
-      i += 1;
-    } else if (arg === '--length') {
-      result.options.length = next;
-      i += 1;
-    } else if (arg === '--format') {
-      result.options.format = next;
-      i += 1;
-    } else if (arg === '-d' || arg === '--dry-run') {
-      result.options.dryRun = true;
-    } else if (arg === '--allow-mixed') {
-      result.options.allowMixed = true;
-    } else if (arg === '--no-backup') {
-      result.options.noBackup = true;
-    } else if (arg === '--legacy') {
-      result.options.legacy = true;
-    } else if (arg === '--error-on-encrypted') {
-      result.options.errorOnEncrypted = true;
-    } else if (arg === '--force-encrypt') {
-      result.options.forceEncrypt = true;
+      continue;
     }
-  }
 
-  if (result.options.dryRun && result.command && !result.file && !['version', 'algorithms', 'keygen'].includes(result.command)) {
-    // dry-run without file is invalid, but we'll let later validation handle file requirement
+    if (arg.startsWith('-')) {
+      throw cliError('ERR_UNKNOWN_OPTION', `Unknown option: ${arg}`);
+    }
+
+    if (result.file !== undefined) {
+      throw cliError('ERR_UNEXPECTED_ARGUMENT', `Unexpected argument: ${arg}`);
+    }
+    result.file = arg;
   }
 
   return result;
 }
 
+function validateCommandLine({ command, file, specifiedOptions }) {
+  const allowedOptions = COMMAND_OPTIONS.get(command);
+  if (!allowedOptions) {
+    throw cliError('ERR_UNKNOWN_COMMAND', `Unknown command: ${command}`);
+  }
+
+  for (const option of specifiedOptions) {
+    if (!allowedOptions.has(option)) {
+      throw cliError(
+        'ERR_INVALID_OPTION',
+        `${command} does not accept ${OPTION_LABELS.get(option)}.`
+      );
+    }
+  }
+
+  if (!FILE_COMMANDS.has(command) && file !== undefined) {
+    throw cliError('ERR_UNEXPECTED_ARGUMENT', `${command} does not accept a file argument.`);
+  }
+}
+
+function parseKeyLength(value) {
+  const rawValue = String(value);
+  if (!/^\d+$/.test(rawValue)) {
+    throw cliError(
+      'ERR_INVALID_LENGTH',
+      `Key length must be an integer between ${KEYGEN_MIN_LENGTH} and ${KEYGEN_MAX_LENGTH} bytes.`
+    );
+  }
+
+  const length = Number(rawValue);
+  if (
+    !Number.isSafeInteger(length) ||
+    length < KEYGEN_MIN_LENGTH ||
+    length > KEYGEN_MAX_LENGTH
+  ) {
+    throw cliError(
+      'ERR_INVALID_LENGTH',
+      `Key length must be an integer between ${KEYGEN_MIN_LENGTH} and ${KEYGEN_MAX_LENGTH} bytes.`
+    );
+  }
+
+  return length;
+}
+
 function generateRandomKey(length, format) {
-  const size = Number.isFinite(length) && length > 0 ? Math.floor(length) : 32;
-  const buffer = randomBytes(size);
+  const buffer = randomBytes(length);
   if (format === 'hex') {
     return buffer.toString('hex');
   }
@@ -286,25 +375,6 @@ function validateMigrationSource(filePath, config) {
 }
 
 function handleMigration({ file, absolutePath, outputPath, config, key, options }) {
-  if (options.algorithm !== undefined) {
-    throw cliError('ERR_INVALID_OPTION', 'migrate does not accept --algorithm.');
-  }
-
-  if (options.legacy) {
-    throw cliError('ERR_INVALID_OPTION', 'migrate does not accept --legacy.');
-  }
-
-  if (options.errorOnEncrypted) {
-    throw cliError(
-      'ERR_INVALID_OPTION',
-      'migrate does not accept --error-on-encrypted.'
-    );
-  }
-
-  if (options.forceEncrypt) {
-    throw cliError('ERR_INVALID_OPTION', 'migrate does not accept --force-encrypt.');
-  }
-
   validateMigrationSource(absolutePath, config);
   const result = migrateConfig(config.data, {
     key,
@@ -379,7 +449,20 @@ function handleMigration({ file, absolutePath, outputPath, config, key, options 
 }
 
 export async function runCli(argv = process.argv) {
-  const { command, file, options } = parseArgs(argv);
+  let parsed;
+  try {
+    parsed = parseArgs(argv);
+    if (parsed.command) {
+      validateCommandLine(parsed);
+    }
+  } catch (error) {
+    const code = typeof error.code === 'string' && error.code.startsWith('ERR_')
+      ? error.code
+      : 'ERR_INVALID_ARGUMENTS';
+    return fail(code, error.message);
+  }
+
+  const { command, file, options } = parsed;
 
   if (!command) {
     print(getHelpText().trim());
@@ -410,19 +493,20 @@ export async function runCli(argv = process.argv) {
   }
 
   if (command === 'keygen') {
-    const desiredLength = options.length ? Number(options.length) : 32;
-    const normalizedFormat = (options.format ?? 'base64').toLowerCase();
-
-    if (!Number.isFinite(desiredLength) || desiredLength <= 0) {
-      return fail('ERR_INVALID_LENGTH', 'Key length must be a positive number.');
+    let desiredLength;
+    try {
+      desiredLength = options.length === undefined ? 32 : parseKeyLength(options.length);
+    } catch (error) {
+      return fail(error.code ?? 'ERR_INVALID_LENGTH', error.message);
     }
+    const normalizedFormat = (options.format ?? 'base64').toLowerCase();
 
     if (!['base64', 'hex'].includes(normalizedFormat)) {
       return fail('ERR_INVALID_FORMAT', 'Key format must be either "base64" or "hex".');
     }
 
     const keyValue = generateRandomKey(desiredLength, normalizedFormat);
-    print(`Generated key (${normalizedFormat}, ${Math.floor(desiredLength)} bytes of entropy):`);
+    print(`Generated key (${normalizedFormat}, ${desiredLength} bytes of entropy):`);
     print(keyValue);
     print('\nStore it securely, e.g.');
     print(`  export YAMLOCK_KEY="${keyValue}"`);
@@ -508,28 +592,6 @@ export async function runCli(argv = process.argv) {
     }
 
     if (command === 'decrypt') {
-      if (options.legacy) {
-        throw cliError('ERR_INVALID_OPTION', 'decrypt does not accept --legacy.');
-      }
-
-      if (options.algorithm !== undefined) {
-        throw cliError(
-          'ERR_INVALID_OPTION',
-          'decrypt infers the algorithm from the payload and does not accept --algorithm.'
-        );
-      }
-
-      if (options.errorOnEncrypted) {
-        throw cliError(
-          'ERR_INVALID_OPTION',
-          'decrypt does not accept --error-on-encrypted.'
-        );
-      }
-
-      if (options.forceEncrypt) {
-        throw cliError('ERR_INVALID_OPTION', 'decrypt does not accept --force-encrypt.');
-      }
-
       const result = processConfig(config.data, {
         mode: 'decrypt',
         key,

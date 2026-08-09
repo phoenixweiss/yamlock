@@ -158,6 +158,81 @@ test('CLI fails when key is missing', () => {
   assert.match(result.stderr, /\[yamlock:ERR_MISSING_KEY]/);
 });
 
+test('CLI rejects malformed argument lists without modifying input', () => {
+  const input = { value: 'secret' };
+  const filePath = createTempFile(input);
+  const cases = [
+    {
+      args: ['encrypt', filePath, '--key', KEY, '--unknown'],
+      code: 'ERR_UNKNOWN_OPTION'
+    },
+    {
+      args: ['encrypt', filePath, '--key', '--dry-run'],
+      code: 'ERR_MISSING_OPTION_VALUE'
+    },
+    {
+      args: ['encrypt', filePath, '--algorithm'],
+      code: 'ERR_MISSING_OPTION_VALUE'
+    },
+    {
+      args: ['encrypt', filePath, '--output'],
+      code: 'ERR_MISSING_OPTION_VALUE'
+    },
+    {
+      args: ['encrypt', filePath, '--paths'],
+      code: 'ERR_MISSING_OPTION_VALUE'
+    },
+    {
+      args: ['keygen', '--format'],
+      code: 'ERR_MISSING_OPTION_VALUE'
+    },
+    {
+      args: ['encrypt', filePath, '--key', KEY, '-k', KEY],
+      code: 'ERR_DUPLICATE_OPTION'
+    },
+    {
+      args: ['encrypt', filePath, 'extra.json', '--key', KEY],
+      code: 'ERR_UNEXPECTED_ARGUMENT'
+    },
+    {
+      args: ['encrypt', filePath, '--key', KEY, '--paths', ','],
+      code: 'ERR_INVALID_OPTION_VALUE'
+    }
+  ];
+
+  for (const scenario of cases) {
+    const result = runCli(scenario.args);
+    assert.equal(result.status, 1, result.stderr);
+    assert.match(result.stderr, new RegExp(`\\[yamlock:${scenario.code}]`));
+    assert.deepEqual(JSON.parse(readFileSync(filePath, 'utf8')), input);
+  }
+});
+
+test('CLI enforces command-specific options and positional arguments', () => {
+  const filePath = createTempFile({ value: 'secret' });
+  const cases = [
+    ['encrypt', filePath, '--key', KEY, '--allow-mixed'],
+    ['decrypt', filePath, '--key', KEY, '--legacy'],
+    ['migrate', filePath, '--key', KEY, '--force-encrypt'],
+    ['keygen', '--key', KEY],
+    ['version', '--dry-run']
+  ];
+
+  for (const args of cases) {
+    const result = runCli(args);
+    assert.equal(result.status, 1, result.stderr);
+    assert.match(result.stderr, /\[yamlock:ERR_INVALID_OPTION]/);
+  }
+
+  const extraArgument = runCli(['algorithms', 'config.json']);
+  assert.equal(extraArgument.status, 1);
+  assert.match(extraArgument.stderr, /\[yamlock:ERR_UNEXPECTED_ARGUMENT]/);
+
+  const unknownCommand = runCli(['unknown']);
+  assert.equal(unknownCommand.status, 1);
+  assert.match(unknownCommand.stderr, /\[yamlock:ERR_UNKNOWN_COMMAND]/);
+});
+
 test('CLI requires explicit legacy mode for legacy algorithm selection', () => {
   const input = { value: 'secret' };
   const filePath = createTempFile(input);
@@ -292,6 +367,22 @@ test('CLI keygen respects length and format overrides', () => {
   assert.equal(result.status, 0, result.stderr);
   const match = result.stdout.match(/[a-f0-9]{32}/i);
   assert.ok(match);
+});
+
+test('CLI keygen requires a bounded integer length', () => {
+  for (const value of ['0', '-1', '1.5', '1e2', '4097', '9007199254740993']) {
+    const result = runCli(['keygen', '--length', value]);
+    assert.equal(result.status, 1, result.stderr);
+    assert.match(result.stderr, /\[yamlock:ERR_INVALID_LENGTH]/);
+  }
+
+  const missing = runCli(['keygen', '--length']);
+  assert.equal(missing.status, 1);
+  assert.match(missing.stderr, /\[yamlock:ERR_MISSING_OPTION_VALUE]/);
+
+  const minimum = runCli(['keygen', '--length', '1', '--format', 'hex']);
+  assert.equal(minimum.status, 0, minimum.stderr);
+  assert.match(minimum.stdout, /Generated key \(hex, 1 bytes of entropy\):/);
 });
 
 test('CLI decrypt infers an explicitly selected legacy encryption algorithm', () => {

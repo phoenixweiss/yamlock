@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file. Each step i
 - `encryptValue`, `processConfig`, and `yamlock encrypt` now write authenticated v2 payloads by default.
 - `decryptValue` and `processConfig` continue to auto-detect and read both legacy and v2 payloads; API callers can request legacy writing explicitly with `formatVersion: 1` or legacy algorithm options.
 - Repeated `processConfig`/CLI encryption now authenticates and preserves existing payloads instead of adding another encryption layer; fully encrypted in-place inputs are not rewritten.
+- CLI argument parsing now rejects unknown or duplicate options, missing values, extra positional arguments, and options that do not belong to the selected command before reading input files; `keygen --length` accepts only integers from 1 to 4096 bytes.
 
 ## [0.3.0] - 2025-12-01
 ### Added
