@@ -4,6 +4,7 @@ import {
   chmodSync,
   copyFileSync,
   existsSync,
+  lstatSync,
   mkdtempSync,
   mkdirSync,
   readFileSync,
@@ -97,17 +98,25 @@ test('CLI encrypts and decrypts JSON configs', () => {
   };
 
   const filePath = createTempFile(input);
+  chmodSync(filePath, 0o640);
+  const originalInode = statSync(filePath).ino;
   const encryptResult = runCli(['encrypt', filePath, '--key', KEY]);
   assert.equal(encryptResult.status, 0, encryptResult.stderr);
 
   const afterEncrypt = JSON.parse(readFileSync(filePath, 'utf8'));
   assert.match(afterEncrypt.db.password, /^yl\|2\|/);
+  const encryptedStat = statSync(filePath);
+  assert.equal(encryptedStat.mode & 0o777, 0o640);
+  assert.notEqual(encryptedStat.ino, originalInode);
 
   const decryptResult = runCli(['decrypt', filePath, '--key', KEY]);
   assert.equal(decryptResult.status, 0, decryptResult.stderr);
 
   const finalContent = JSON.parse(readFileSync(filePath, 'utf8'));
   assert.deepEqual(finalContent, input);
+  const decryptedStat = statSync(filePath);
+  assert.equal(decryptedStat.mode & 0o777, 0o640);
+  assert.notEqual(decryptedStat.ino, encryptedStat.ino);
 });
 
 test('CLI repeated encrypt preserves authenticated payloads without rewriting the file', () => {
@@ -362,6 +371,7 @@ test('CLI writes to a separate file when --output is used', () => {
   };
 
   const filePath = createTempFile(input);
+  chmodSync(filePath, 0o640);
   const outputPath = `${filePath}.enc`;
   const originalContent = readFileSync(filePath, 'utf8');
 
@@ -380,6 +390,63 @@ test('CLI writes to a separate file when --output is used', () => {
 
   assert.equal(sourceAfter, originalContent);
   assert.notEqual(outputContent, originalContent);
+  assert.equal(statSync(outputPath).mode & 0o777, 0o640);
+});
+
+test('CLI atomically replaces an existing output while preserving its mode', () => {
+  const input = { value: 'secret' };
+  const filePath = createTempFile(input);
+  const outputPath = `${filePath}.enc`;
+  const sourceRaw = readFileSync(filePath, 'utf8');
+  writeFileSync(outputPath, 'existing-output');
+  chmodSync(outputPath, 0o600);
+  const outputInode = statSync(outputPath).ino;
+
+  const result = runCli([
+    'encrypt',
+    filePath,
+    '--key',
+    KEY,
+    '--output',
+    outputPath
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(readFileSync(filePath, 'utf8'), sourceRaw);
+  assert.equal(statSync(outputPath).mode & 0o777, 0o600);
+  assert.notEqual(statSync(outputPath).ino, outputInode);
+  assert.match(JSON.parse(readFileSync(outputPath, 'utf8')).value, /^yl\|2\|/);
+});
+
+test('CLI refuses symbolic-link inputs and outputs without modifying targets', () => {
+  const targetPath = createTempFile({ value: 'target' });
+  const inputLink = `${targetPath}.input-link`;
+  const targetRaw = readFileSync(targetPath, 'utf8');
+  symlinkSync(targetPath, inputLink);
+
+  const unsafeInput = runCli(['encrypt', inputLink, '--key', KEY]);
+  assert.equal(unsafeInput.status, 1);
+  assert.match(unsafeInput.stderr, /\[yamlock:ERR_UNSAFE_INPUT]/);
+  assert.equal(readFileSync(targetPath, 'utf8'), targetRaw);
+  assert.equal(lstatSync(inputLink).isSymbolicLink(), true);
+
+  const sourcePath = createTempFile({ value: 'source' });
+  const outputTarget = createTempFile({ value: 'output-target' });
+  const outputTargetRaw = readFileSync(outputTarget, 'utf8');
+  const outputLink = `${sourcePath}.output-link`;
+  symlinkSync(outputTarget, outputLink);
+
+  const unsafeOutput = runCli([
+    'encrypt',
+    sourcePath,
+    '--key',
+    KEY,
+    '--output',
+    outputLink
+  ]);
+  assert.equal(unsafeOutput.status, 1);
+  assert.match(unsafeOutput.stderr, /\[yamlock:ERR_UNSAFE_OUTPUT]/);
+  assert.equal(readFileSync(outputTarget, 'utf8'), outputTargetRaw);
+  assert.equal(lstatSync(outputLink).isSymbolicLink(), true);
 });
 
 test('CLI dry-run prints diff without modifying files', () => {

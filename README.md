@@ -72,7 +72,12 @@ yamlock migrate config.yml -k "$YAMLOCK_KEY" -p db.password -d
 yamlock encrypt config.yml -k "$YAMLOCK_KEY" --legacy --algorithm aes-256-cbc
 ```
 
-The CLI detects YAML (`.yaml`/`.yml`) and JSON extensions automatically and writes the file back in the same format.
+The CLI detects YAML (`.yaml`/`.yml`) and JSON extensions automatically and
+writes the file back in the same format. Normal `encrypt` and `decrypt` writes
+use an fsynced temporary file plus an atomic rename. In-place writes preserve
+the source mode; a new `--output` inherits the source mode, while an existing
+regular output preserves its own mode. Mutating operations reject symbolic-link
+inputs and outputs rather than following or replacing their targets.
 
 Options of note:
 - `--output <file>` writes the result to a separate file instead of overwriting the input.

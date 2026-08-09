@@ -20,6 +20,7 @@ All notable changes to this project will be documented in this file. Each step i
 - CLI integration tests now force an explicit source mode through the real `bin/yamlock` launcher, preventing stale local `dist` output from masking source changes while preserving distribution-first behavior for normal runs.
 - `processConfig` now validates non-string policies, path options, serializer output, collisions, and circular structures; opaque values are preserved by `ignore`, while `stringify` fails closed for values that cannot be converted without type loss.
 - Selective processing applies non-string policies only to selected leaves, and YAML timestamp values are no longer collapsed into empty objects during CLI traversal.
+- Normal CLI encrypt/decrypt writes now use the shared atomic temporary-file writer, verify that the source did not change after reading, preserve source or existing-output modes, reject symbolic-link paths, and clean up temporary files after failures.
 
 ## [0.3.0] - 2025-12-01
 ### Added

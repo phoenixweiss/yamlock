@@ -1,17 +1,9 @@
 #!/usr/bin/env node
 import {
-  closeSync,
-  fchmodSync,
-  fsyncSync,
-  linkSync,
   lstatSync,
-  openSync,
-  readFileSync,
-  renameSync,
-  unlinkSync,
-  writeFileSync
+  readFileSync
 } from 'node:fs';
-import { basename, dirname, extname, join, resolve } from 'node:path';
+import { extname, resolve } from 'node:path';
 import { exit } from 'node:process';
 import { createRequire } from 'node:module';
 import { randomBytes } from 'node:crypto';
@@ -20,6 +12,7 @@ import { isDeepStrictEqual } from 'node:util';
 import yaml from 'js-yaml';
 
 import { processConfig } from '../utils/config.js';
+import { writeFileAtomically } from '../utils/file.js';
 import { migrateConfig } from '../utils/migrate.js';
 import { listSupportedAlgorithms, TESTED_ALGORITHMS } from '../crypto/utils.js';
 
@@ -138,44 +131,6 @@ function serializeConfig(format, data) {
   }
 
   return `${JSON.stringify(data, null, 2)}\n`;
-}
-
-function writeConfigFileAtomically(filePath, serialized, { mode, refuseExisting = false } = {}) {
-  const temporaryPath = join(
-    dirname(filePath),
-    `.${basename(filePath)}.yamlock-${process.pid}-${randomBytes(8).toString('hex')}.tmp`
-  );
-  let fileDescriptor;
-
-  try {
-    fileDescriptor = openSync(temporaryPath, 'wx', 0o600);
-    writeFileSync(fileDescriptor, serialized, 'utf8');
-    if (mode !== undefined) {
-      fchmodSync(fileDescriptor, mode);
-    }
-    fsyncSync(fileDescriptor);
-    closeSync(fileDescriptor);
-    fileDescriptor = undefined;
-
-    if (refuseExisting) {
-      linkSync(temporaryPath, filePath);
-      unlinkSync(temporaryPath);
-      return;
-    }
-
-    renameSync(temporaryPath, filePath);
-  } catch (error) {
-    if (fileDescriptor !== undefined) {
-      closeSync(fileDescriptor);
-    }
-
-    try {
-      unlinkSync(temporaryPath);
-    } catch {
-      // The temporary file may already have been renamed or removed.
-    }
-    throw error;
-  }
 }
 
 function parsePaths(value) {
@@ -323,22 +278,69 @@ function cliError(code, message) {
   return Object.assign(new Error(message), { code });
 }
 
-function handleWrite({ dryRun, file, outputPath, format, originalRaw, data, operation }) {
-  const serialized = serializeConfig(format, data);
+function validateOperationSource(filePath, config) {
+  if (config.stat.isSymbolicLink() || !config.stat.isFile()) {
+    throw cliError('ERR_UNSAFE_INPUT', 'Input must be a regular file, not a symbolic link.');
+  }
+
+  let currentStat;
+  let currentRaw;
+  try {
+    currentStat = lstatSync(filePath);
+    currentRaw = readFileSync(filePath, 'utf8');
+  } catch {
+    throw cliError('ERR_INPUT_CHANGED', 'Input changed after it was read; no file was replaced.');
+  }
+  if (
+    !currentStat.isFile() ||
+    currentStat.isSymbolicLink() ||
+    currentStat.dev !== config.stat.dev ||
+    currentStat.ino !== config.stat.ino ||
+    currentStat.mode !== config.stat.mode ||
+    currentRaw !== config.raw
+  ) {
+    throw cliError('ERR_INPUT_CHANGED', 'Input changed after it was read; no file was replaced.');
+  }
+}
+
+function resolveOutputMode(outputPath, sourceMode) {
+  try {
+    const outputStat = lstatSync(outputPath);
+    if (outputStat.isSymbolicLink() || !outputStat.isFile()) {
+      throw cliError('ERR_UNSAFE_OUTPUT', 'Output must be a regular file, not a symbolic link.');
+    }
+    return outputStat.mode & 0o7777;
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return sourceMode;
+    }
+    throw error;
+  }
+}
+
+function handleWrite({ dryRun, file, absolutePath, outputPath, config, data, operation }) {
+  const serialized = serializeConfig(config.format, data);
   if (dryRun) {
     print(`DRY-RUN (${operation}) ${file}`);
     print('--- original');
-    print((originalRaw ?? '').trimEnd());
+    print((config.raw ?? '').trimEnd());
     print('+++ result');
     print(serialized.trimEnd());
-    if (outputPath !== file) {
+    if (outputPath !== absolutePath) {
       print(`(would write to ${outputPath})`);
     }
     print('No files were modified.');
     return;
   }
 
-  writeFileSync(outputPath, serialized, 'utf8');
+  const sourceMode = config.stat.mode & 0o7777;
+  const inPlace = outputPath === absolutePath;
+  validateOperationSource(absolutePath, config);
+  const outputMode = inPlace
+    ? sourceMode
+    : resolveOutputMode(outputPath, sourceMode);
+
+  writeFileAtomically(outputPath, serialized, { mode: outputMode });
   print(`${operation === 'encrypt' ? 'Encrypted' : 'Decrypted'} values in ${outputPath}`);
 }
 
@@ -406,7 +408,7 @@ function handleMigration({ file, absolutePath, outputPath, config, key, options 
   if (inPlace && !options.noBackup) {
     backupPath = `${absolutePath}.yamlock.bak`;
     try {
-      writeConfigFileAtomically(backupPath, config.raw, {
+      writeFileAtomically(backupPath, config.raw, {
         mode: config.stat.mode & 0o7777,
         refuseExisting: true
       });
@@ -422,7 +424,7 @@ function handleMigration({ file, absolutePath, outputPath, config, key, options 
   }
 
   try {
-    writeConfigFileAtomically(outputPath, serialized, {
+    writeFileAtomically(outputPath, serialized, {
       mode: config.stat.mode & 0o7777,
       refuseExisting: !inPlace
     });
@@ -582,9 +584,9 @@ export async function runCli(argv = process.argv) {
       handleWrite({
         dryRun: options.dryRun,
         file,
+        absolutePath,
         outputPath,
-        format: config.format,
-        originalRaw: config.raw,
+        config,
         data: result,
         operation: 'encrypt'
       });
@@ -600,9 +602,9 @@ export async function runCli(argv = process.argv) {
       handleWrite({
         dryRun: options.dryRun,
         file,
+        absolutePath,
         outputPath,
-        format: config.format,
-        originalRaw: config.raw,
+        config,
         data: result,
         operation: 'decrypt'
       });
