@@ -172,7 +172,7 @@ const mixedConfig = { db: { password: 'secret', retries: 3 } };
 const lockedMixed = processConfig(mixedConfig, {
   mode: 'encrypt',
   key: KEY,
-  nonStringPolicy: 'stringify', // stringifies numbers/objects before encrypting
+  nonStringPolicy: 'stringify', // stringifies finite numbers, booleans, and null
   pathSerializer: (segments) => segments.join('/') // custom path naming (db/password instead of dot notation)
 });
 
@@ -191,6 +191,19 @@ const lockedUsers = processConfig(
   }
 );
 ```
+
+`processConfig` recursively traverses arrays and plain objects. With the default
+`nonStringPolicy: 'ignore'`, selected non-string and opaque values such as
+`Date`, `undefined`, or `BigInt` are preserved unchanged. Policy `'error'`
+rejects a selected non-string value. Policy `'stringify'` accepts only finite
+numbers, booleans, and `null`; values that native JSON conversion could omit or
+silently change are rejected instead of being encrypted with lost type
+information. Decrypted stringified primitives remain strings.
+
+Circular arrays/objects are rejected. A custom `pathSerializer` must return a
+non-empty, unique string for every leaf and the same serializer must be used for
+encryption and decryption. Policies apply only to values selected by `paths`;
+unselected leaf values are preserved.
 
 ### Authenticated payload v2 (default)
 
@@ -246,9 +259,9 @@ not received a third-party security audit.
 
 ## Advanced usage
 
-- **Selective encryption**: combine `--paths` on the CLI or `paths: []` in `processConfig` to encrypt only sensitive sections of a config file.
+- **Selective encryption**: combine `--paths` on the CLI or a non-empty `paths: ['db.password']` array in `processConfig` to encrypt only sensitive fields.
 - **Repeated encryption**: valid selected payloads are authenticated and preserved; add `--error-on-encrypted` or `existingPayloadPolicy: 'error'` for strict workflows.
-- **Non-string handling**: use `nonStringPolicy: 'ignore' | 'stringify' | 'error'` to control how numbers/objects are treated, and `pathSerializer` to change how traversal paths are represented (e.g., `db/password` instead of dot notation).
+- **Non-string handling**: use `nonStringPolicy: 'ignore' | 'stringify' | 'error'` to preserve opaque leaves, stringify finite JSON primitives, or reject selected non-string values; use `pathSerializer` to change path representation (e.g., `db/password` instead of dot notation).
 - **CI/CD flows**: see [examples/docs/ci-cd.md](examples/docs/ci-cd.md) for a GitHub Actions job that decrypts configs for builds and re-encrypts them before publishing artifacts.
 - **Key rotation**: follow [examples/docs/key-rotation.md](examples/docs/key-rotation.md) for a step-by-step process, including scripting tips for large repos.
 

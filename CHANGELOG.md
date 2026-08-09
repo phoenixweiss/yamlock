@@ -18,6 +18,8 @@ All notable changes to this project will be documented in this file. Each step i
 - Repeated `processConfig`/CLI encryption now authenticates and preserves existing payloads instead of adding another encryption layer; fully encrypted in-place inputs are not rewritten.
 - CLI argument parsing now rejects unknown or duplicate options, missing values, extra positional arguments, and options that do not belong to the selected command before reading input files; `keygen --length` accepts only integers from 1 to 4096 bytes.
 - CLI integration tests now force an explicit source mode through the real `bin/yamlock` launcher, preventing stale local `dist` output from masking source changes while preserving distribution-first behavior for normal runs.
+- `processConfig` now validates non-string policies, path options, serializer output, collisions, and circular structures; opaque values are preserved by `ignore`, while `stringify` fails closed for values that cannot be converted without type loss.
+- Selective processing applies non-string policies only to selected leaves, and YAML timestamp values are no longer collapsed into empty objects during CLI traversal.
 
 ## [0.3.0] - 2025-12-01
 ### Added

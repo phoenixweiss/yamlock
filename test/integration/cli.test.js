@@ -187,6 +187,25 @@ test('CLI encrypts and decrypts YAML configs', () => {
   assert.deepEqual(finalContent, input);
 });
 
+test('CLI preserves YAML timestamps as opaque values', () => {
+  const createdAt = new Date('2025-12-01T12:34:56.000Z');
+  const filePath = createTempFile({ createdAt, secret: 'value' }, '.yaml');
+  const result = runCli([
+    'encrypt',
+    filePath,
+    '--key',
+    KEY,
+    '--paths',
+    'secret'
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+
+  const encrypted = yaml.load(readFileSync(filePath, 'utf8'));
+  assert.equal(encrypted.createdAt instanceof Date, true);
+  assert.equal(encrypted.createdAt.toISOString(), createdAt.toISOString());
+  assert.match(encrypted.secret, /^yl\|2\|/);
+});
+
 test('CLI fails when key is missing', () => {
   const filePath = createTempFile({ value: 'secret' });
   const result = runCli(['encrypt', filePath]);

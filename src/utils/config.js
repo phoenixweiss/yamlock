@@ -9,12 +9,103 @@ const MODES = {
   DECRYPT: 'decrypt'
 };
 
+const NON_STRING_POLICIES = new Set(['ignore', 'stringify', 'error']);
 const EXISTING_PAYLOAD_POLICIES = new Set(['preserve', 'error', 'encrypt']);
 
 function createConfigError(code, message) {
   const error = new Error(message);
   error.code = code;
   return error;
+}
+
+function isConfigContainer(value) {
+  if (Array.isArray(value)) {
+    return true;
+  }
+
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function validatePathSegments(segments, optionName) {
+  if (!Array.isArray(segments)) {
+    throw createConfigError(
+      'ERR_INVALID_PATH_SEGMENTS',
+      `${optionName} must be an array of non-empty strings or non-negative integers.`
+    );
+  }
+
+  const hasInvalidSegment = segments.some((segment) => (
+    (typeof segment !== 'string' || segment.length === 0) &&
+    (!Number.isInteger(segment) || segment < 0)
+  ));
+  if (hasInvalidSegment) {
+    throw createConfigError(
+      'ERR_INVALID_PATH_SEGMENTS',
+      `${optionName} must contain only non-empty strings or non-negative integers.`
+    );
+  }
+}
+
+function normalizePaths(paths) {
+  if (paths === undefined || (Array.isArray(paths) && paths.length === 0)) {
+    return null;
+  }
+
+  if (!Array.isArray(paths)) {
+    throw createConfigError('ERR_INVALID_PATHS', 'paths must be an array of non-empty strings.');
+  }
+
+  const normalized = paths.map((path) => {
+    if (typeof path !== 'string' || path.trim().length === 0) {
+      throw createConfigError('ERR_INVALID_PATHS', 'paths must contain only non-empty strings.');
+    }
+    return path.trim();
+  });
+  return new Set(normalized);
+}
+
+function resolveCurrentPath(segments, pathSerializer) {
+  let currentPath;
+  try {
+    currentPath = pathSerializer
+      ? pathSerializer([...segments])
+      : buildPath(segments.slice(0, -1), segments.at(-1));
+  } catch (error) {
+    throw createConfigError(
+      pathSerializer ? 'ERR_INVALID_PATH_SERIALIZER' : 'ERR_INVALID_PATH_SEGMENTS',
+      `Failed to serialize config path: ${error.message}`
+    );
+  }
+
+  if (typeof currentPath !== 'string' || currentPath.length === 0) {
+    throw createConfigError(
+      'ERR_INVALID_PATH_SERIALIZER',
+      'pathSerializer must return a non-empty string.'
+    );
+  }
+
+  return currentPath;
+}
+
+function stringifyConfigLeaf(value, currentPath) {
+  const isJsonPrimitive = (
+    value === null ||
+    typeof value === 'boolean' ||
+    (typeof value === 'number' && Number.isFinite(value))
+  );
+  if (!isJsonPrimitive) {
+    throw createConfigError(
+      'ERR_UNSUPPORTED_CONFIG_VALUE',
+      `Value at ${currentPath} cannot be stringified without an explicit conversion.`
+    );
+  }
+
+  return JSON.stringify(value);
 }
 
 /**
@@ -34,8 +125,15 @@ function createConfigError(code, message) {
  * @returns {Object|Array}
  */
 export function processConfig(node, options) {
-  if (typeof node !== 'object' || node === null) {
-    throw new Error('processConfig expects a non-null object or array.');
+  if (!isConfigContainer(node)) {
+    throw createConfigError(
+      'ERR_INVALID_CONFIG_ROOT',
+      'processConfig expects an array or plain object.'
+    );
+  }
+
+  if (typeof options !== 'object' || options === null || Array.isArray(options)) {
+    throw createConfigError('ERR_INVALID_CONFIG_OPTIONS', 'processConfig options must be an object.');
   }
 
   const mode = options.mode;
@@ -50,9 +148,24 @@ export function processConfig(node, options) {
     );
   }
 
-  const normalizedPaths = Array.isArray(options.paths) && options.paths.length > 0
-    ? new Set(options.paths.map((path) => String(path).trim()).filter(Boolean))
-    : null;
+  const nonStringPolicy = options.nonStringPolicy ?? 'ignore';
+  if (!NON_STRING_POLICIES.has(nonStringPolicy)) {
+    throw createConfigError(
+      'ERR_INVALID_NON_STRING_POLICY',
+      `Unknown nonStringPolicy: ${nonStringPolicy}`
+    );
+  }
+
+  if (options.pathSerializer !== undefined && typeof options.pathSerializer !== 'function') {
+    throw createConfigError(
+      'ERR_INVALID_PATH_SERIALIZER',
+      'pathSerializer must be a function.'
+    );
+  }
+
+  const parentPath = options.parentPath ?? [];
+  validatePathSegments(parentPath, 'parentPath');
+  const normalizedPaths = normalizePaths(options.paths);
   const existingPayloadPolicy = options.existingPayloadPolicy ?? 'preserve';
   if (!EXISTING_PAYLOAD_POLICIES.has(existingPayloadPolicy)) {
     throw createConfigError(
@@ -64,15 +177,17 @@ export function processConfig(node, options) {
   return traverseConfig(node, {
     ...options,
     mode,
-    parentPath: options.parentPath ?? [],
+    parentPath,
     normalizedPaths,
-    nonStringPolicy: options.nonStringPolicy ?? 'ignore',
+    nonStringPolicy,
     existingPayloadPolicy,
-    pathSerializer: options.pathSerializer
+    pathSerializer: options.pathSerializer,
+    ancestors: new WeakSet(),
+    seenPaths: new Set()
   });
 }
 
-function traverseConfig(node, { mode, key, algorithm, algorithmOptions, formatVersion, parentPath, normalizedPaths, nonStringPolicy, existingPayloadPolicy, pathSerializer }) {
+function traverseConfig(node, { mode, key, algorithm, algorithmOptions, formatVersion, parentPath, normalizedPaths, nonStringPolicy, existingPayloadPolicy, pathSerializer, ancestors, seenPaths }) {
   const isArrayNode = Array.isArray(node);
   const result = isArrayNode ? [] : {};
   const selectedCryptoOptions = algorithmOptions ?? algorithm;
@@ -82,76 +197,103 @@ function traverseConfig(node, { mode, key, algorithm, algorithmOptions, formatVe
       ? { ...selectedCryptoOptions, formatVersion }
       : { algorithm: selectedCryptoOptions, formatVersion };
 
-  Object.entries(node).forEach(([rawKey, value]) => {
-    const segment = isArrayNode ? Number(rawKey) : rawKey;
-    const targetKey = isArrayNode ? segment : rawKey;
-    const currentPath = pathSerializer
-      ? pathSerializer([...parentPath, segment])
-      : buildPath(parentPath, segment);
+  ancestors.add(node);
+  try {
+    for (const [rawKey, originalValue] of Object.entries(node)) {
+      const segment = isArrayNode ? Number(rawKey) : rawKey;
+      const targetKey = isArrayNode ? segment : rawKey;
+      const pathSegments = [...parentPath, segment];
+      const currentPath = resolveCurrentPath(pathSegments, pathSerializer);
 
-    if (value !== null && typeof value === 'object') {
-      result[targetKey] = traverseConfig(value, {
-        mode,
-        key,
-        algorithm: cryptoOptions,
-        algorithmOptions: cryptoOptions,
-        parentPath: [...parentPath, segment],
-        normalizedPaths,
-        nonStringPolicy,
-        existingPayloadPolicy,
-        pathSerializer
-      });
-      return;
-    }
-
-    if (typeof value !== 'string') {
-      if (nonStringPolicy === 'stringify') {
-        value = JSON.stringify(value);
-      } else if (nonStringPolicy === 'error') {
-        throw new Error(`Non-string value encountered at ${currentPath}`);
-      } else {
-        result[targetKey] = value;
-        return;
-      }
-    }
-
-    const shouldProcess = !normalizedPaths || normalizedPaths.has(currentPath);
-    if (!shouldProcess) {
-      result[targetKey] = value;
-      return;
-    }
-
-    if (mode === MODES.ENCRYPT) {
-      if (isYamlockPayload(value)) {
-        if (existingPayloadPolicy === 'encrypt') {
-          result[targetKey] = encryptValue(value, key, currentPath, cryptoOptions);
-          return;
-        }
-
-        const payloadVersion = detectPayloadVersion(value);
-        decryptValue(
-          value,
-          key,
-          currentPath,
-          payloadVersion === 1 ? cryptoOptions : undefined
-        );
-
-        if (existingPayloadPolicy === 'error') {
+      if (isConfigContainer(originalValue)) {
+        if (ancestors.has(originalValue)) {
           throw createConfigError(
-            'ERR_ALREADY_ENCRYPTED',
-            `Selected value at ${currentPath} is already encrypted.`
+            'ERR_CIRCULAR_CONFIG',
+            `Circular reference encountered at ${currentPath}.`
           );
         }
 
-        result[targetKey] = value;
-        return;
+        result[targetKey] = traverseConfig(originalValue, {
+          mode,
+          key,
+          algorithm: cryptoOptions,
+          algorithmOptions: cryptoOptions,
+          parentPath: pathSegments,
+          normalizedPaths,
+          nonStringPolicy,
+          existingPayloadPolicy,
+          pathSerializer,
+          ancestors,
+          seenPaths
+        });
+        continue;
       }
 
-      result[targetKey] = encryptValue(value, key, currentPath, cryptoOptions);
-    } else {
-      result[targetKey] = decryptValue(value, key, currentPath, cryptoOptions);
-    }
-  });
+      if (seenPaths.has(currentPath)) {
+        throw createConfigError(
+          'ERR_PATH_COLLISION',
+          `Multiple config values resolve to the path ${currentPath}.`
+        );
+      }
+      seenPaths.add(currentPath);
 
-  return result;
+      const shouldProcess = !normalizedPaths || normalizedPaths.has(currentPath);
+      if (!shouldProcess) {
+        result[targetKey] = originalValue;
+        continue;
+      }
+
+      let value = originalValue;
+      if (typeof value !== 'string') {
+        if (nonStringPolicy === 'ignore') {
+          result[targetKey] = value;
+          continue;
+        }
+
+        if (nonStringPolicy === 'error' || mode === MODES.DECRYPT) {
+          throw createConfigError(
+            'ERR_NON_STRING_VALUE',
+            `Non-string value encountered at ${currentPath}.`
+          );
+        }
+
+        value = stringifyConfigLeaf(value, currentPath);
+      }
+
+      if (mode === MODES.ENCRYPT) {
+        if (isYamlockPayload(value)) {
+          if (existingPayloadPolicy === 'encrypt') {
+            result[targetKey] = encryptValue(value, key, currentPath, cryptoOptions);
+            continue;
+          }
+
+          const payloadVersion = detectPayloadVersion(value);
+          decryptValue(
+            value,
+            key,
+            currentPath,
+            payloadVersion === 1 ? cryptoOptions : undefined
+          );
+
+          if (existingPayloadPolicy === 'error') {
+            throw createConfigError(
+              'ERR_ALREADY_ENCRYPTED',
+              `Selected value at ${currentPath} is already encrypted.`
+            );
+          }
+
+          result[targetKey] = value;
+          continue;
+        }
+
+        result[targetKey] = encryptValue(value, key, currentPath, cryptoOptions);
+      } else {
+        result[targetKey] = decryptValue(value, key, currentPath, cryptoOptions);
+      }
+    }
+
+    return result;
+  } finally {
+    ancestors.delete(node);
+  }
 }

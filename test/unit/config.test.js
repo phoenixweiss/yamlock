@@ -38,8 +38,105 @@ test('processConfig decrypts values back to their original form', () => {
 });
 
 test('processConfig validates mode and input types', () => {
-  assert.throws(() => processConfig(null, { mode: 'encrypt', key: KEY }), /non-null object or array/);
+  assert.throws(
+    () => processConfig(null, { mode: 'encrypt', key: KEY }),
+    (error) => error.code === 'ERR_INVALID_CONFIG_ROOT'
+  );
+  assert.throws(
+    () => processConfig(new Date(), { mode: 'encrypt', key: KEY }),
+    (error) => error.code === 'ERR_INVALID_CONFIG_ROOT'
+  );
+  assert.throws(
+    () => processConfig({ value: 'x' }),
+    (error) => error.code === 'ERR_INVALID_CONFIG_OPTIONS'
+  );
   assert.throws(() => processConfig({ value: 'x' }, { mode: 'unknown', key: KEY }), /Unknown processConfig mode/);
+});
+
+test('processConfig validates policies, paths, and path serializers', () => {
+  const input = { value: 'secret' };
+
+  assert.throws(
+    () => processConfig(input, { mode: 'encrypt', key: KEY, nonStringPolicy: 'unknown' }),
+    (error) => error.code === 'ERR_INVALID_NON_STRING_POLICY'
+  );
+  assert.throws(
+    () => processConfig(input, { mode: 'encrypt', key: KEY, paths: 'value' }),
+    (error) => error.code === 'ERR_INVALID_PATHS'
+  );
+  assert.throws(
+    () => processConfig(input, { mode: 'encrypt', key: KEY, paths: [''] }),
+    (error) => error.code === 'ERR_INVALID_PATHS'
+  );
+  assert.throws(
+    () => processConfig(input, { mode: 'encrypt', key: KEY, parentPath: [undefined] }),
+    (error) => error.code === 'ERR_INVALID_PATH_SEGMENTS'
+  );
+  assert.throws(
+    () => processConfig(input, { mode: 'encrypt', key: KEY, pathSerializer: 'value' }),
+    (error) => error.code === 'ERR_INVALID_PATH_SERIALIZER'
+  );
+  assert.throws(
+    () => processConfig(input, {
+      mode: 'encrypt',
+      key: KEY,
+      pathSerializer: () => 42
+    }),
+    (error) => error.code === 'ERR_INVALID_PATH_SERIALIZER'
+  );
+  assert.throws(
+    () => processConfig(input, {
+      mode: 'encrypt',
+      key: KEY,
+      pathSerializer: () => {
+        throw new Error('serializer failure');
+      }
+    }),
+    (error) => error.code === 'ERR_INVALID_PATH_SERIALIZER'
+  );
+});
+
+test('processConfig rejects pathSerializer collisions and supports valid custom paths', () => {
+  assert.throws(
+    () => processConfig(
+      { first: 'one', second: 'two' },
+      { mode: 'encrypt', key: KEY, pathSerializer: () => 'same' }
+    ),
+    (error) => error.code === 'ERR_PATH_COLLISION'
+  );
+
+  const serializer = (segments) => segments.join('/');
+  const input = { db: { password: 'secret' } };
+  const encrypted = processConfig(input, {
+    mode: 'encrypt',
+    key: KEY,
+    pathSerializer: serializer
+  });
+  const decrypted = processConfig(encrypted, {
+    mode: 'decrypt',
+    key: KEY,
+    pathSerializer: serializer
+  });
+  assert.deepEqual(decrypted, input);
+});
+
+test('processConfig rejects cycles but permits shared non-circular objects', () => {
+  const circular = { value: 'secret' };
+  circular.self = circular;
+  assert.throws(
+    () => processConfig(circular, { mode: 'encrypt', key: KEY }),
+    (error) => error.code === 'ERR_CIRCULAR_CONFIG'
+  );
+
+  const shared = { secret: 'value' };
+  const encrypted = processConfig(
+    { first: shared, second: shared },
+    { mode: 'encrypt', key: KEY }
+  );
+  assert.match(encrypted.first.secret, /^yl\|2\|/);
+  assert.match(encrypted.second.secret, /^yl\|2\|/);
+  assert.notEqual(encrypted.first.secret, encrypted.second.secret);
+  assert.equal(shared.secret, 'value');
 });
 
 test('processConfig respects algorithm option overrides', () => {
@@ -168,27 +265,102 @@ test('processConfig validates existingPayloadPolicy usage', () => {
   );
 });
 
-test('processConfig stringifies non-string values when policy=stringify', () => {
-  const input = { value: 12345 };
+test('processConfig stringifies finite JSON primitives when policy=stringify', () => {
+  const input = { number: 12345, enabled: true, empty: null };
   const encrypted = processConfig(input, {
     mode: 'encrypt',
     key: KEY,
     nonStringPolicy: 'stringify'
   });
-  assert.ok(encrypted.value.startsWith('yl|'));
+  assert.match(encrypted.number, /^yl\|2\|/);
+  assert.match(encrypted.enabled, /^yl\|2\|/);
+  assert.match(encrypted.empty, /^yl\|2\|/);
 
   const decrypted = processConfig(encrypted, {
     mode: 'decrypt',
-    key: KEY,
-    nonStringPolicy: 'stringify'
+    key: KEY
   });
-  assert.equal(decrypted.value, '12345');
+  assert.deepEqual(decrypted, { number: '12345', enabled: 'true', empty: 'null' });
 });
 
 test('processConfig throws when non-string values encountered and policy=error', () => {
   const algorithmOptions = { algorithm: 'aes-192-cbc' };
   const input = { value: { secret: 123 } };
-  assert.throws(() => {
-    processConfig(input, { mode: 'encrypt', key: KEY, nonStringPolicy: 'error', algorithm: algorithmOptions });
-  }, /Non-string value encountered/);
+  assert.throws(
+    () => processConfig(input, {
+      mode: 'encrypt',
+      key: KEY,
+      nonStringPolicy: 'error',
+      algorithm: algorithmOptions
+    }),
+    (error) => error.code === 'ERR_NON_STRING_VALUE'
+  );
+});
+
+test('processConfig preserves opaque values with policy=ignore', () => {
+  const date = new Date('2025-12-01T12:34:56.000Z');
+  const map = new Map([['key', 'value']]);
+  const handler = () => 'value';
+  const input = {
+    date,
+    map,
+    missing: undefined,
+    large: 1n,
+    invalidNumber: Number.NaN,
+    handler
+  };
+
+  const result = processConfig(input, { mode: 'encrypt', key: KEY });
+  assert.equal(result.date, date);
+  assert.equal(result.map, map);
+  assert.equal(result.missing, undefined);
+  assert.equal(result.large, 1n);
+  assert.equal(Number.isNaN(result.invalidNumber), true);
+  assert.equal(result.handler, handler);
+});
+
+test('processConfig fails closed when stringify would lose type information', () => {
+  const unsupported = [
+    undefined,
+    1n,
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+    new Date('2025-12-01T12:34:56.000Z'),
+    new Map([['key', 'value']])
+  ];
+
+  for (const value of unsupported) {
+    assert.throws(
+      () => processConfig(
+        { value },
+        { mode: 'encrypt', key: KEY, nonStringPolicy: 'stringify' }
+      ),
+      (error) => error.code === 'ERR_UNSUPPORTED_CONFIG_VALUE'
+    );
+  }
+});
+
+test('processConfig applies nonStringPolicy only to selected values', () => {
+  const date = new Date('2025-12-01T12:34:56.000Z');
+  const input = { secret: 'value', retries: 3, createdAt: date };
+  const encrypted = processConfig(input, {
+    mode: 'encrypt',
+    key: KEY,
+    paths: ['secret'],
+    nonStringPolicy: 'error'
+  });
+
+  assert.match(encrypted.secret, /^yl\|2\|/);
+  assert.equal(encrypted.retries, 3);
+  assert.equal(encrypted.createdAt, date);
+});
+
+test('processConfig rejects selected non-string values during decryption', () => {
+  assert.throws(
+    () => processConfig(
+      { value: 123 },
+      { mode: 'decrypt', key: KEY, nonStringPolicy: 'stringify' }
+    ),
+    (error) => error.code === 'ERR_NON_STRING_VALUE'
+  );
 });
