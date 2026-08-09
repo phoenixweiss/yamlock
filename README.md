@@ -79,6 +79,11 @@ the source mode; a new `--output` inherits the source mode, while an existing
 regular output preserves its own mode. Mutating operations reject symbolic-link
 inputs and outputs rather than following or replacing their targets.
 
+YAML writes preserve parsed values, not the original syntax tree. Comments,
+anchor/alias syntax, merge keys, explicit tags, quoting, and formatting may be
+removed or normalized. Review [the YAML rewrite contract](docs/yaml-behavior.md)
+and use `--dry-run` or `--output` when presentation details matter.
+
 Options of note:
 - `--output <file>` writes the result to a separate file instead of overwriting the input.
 - `--paths <path1,path2>` targets only the specified fields (dot/bracket notation like `db.password` or `users[0].token`).

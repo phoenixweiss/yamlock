@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file. Each step i
 - Explicit CLI legacy-write compatibility through `yamlock encrypt --legacy`; custom encryption algorithms require this mode.
 - Strict repeated-encryption checks through CLI `--error-on-encrypted` and Node.js `existingPayloadPolicy: 'error'`.
 - Explicit `--force-encrypt` / `existingPayloadPolicy: 'encrypt'` handling for intentional `yl|...` plaintext or nested encryption.
+- YAML rewrite documentation and regression coverage for comments, formatting, anchors, aliases, merge keys, and explicit/custom tags.
 
 ### Changed
 - `encryptValue`, `processConfig`, and `yamlock encrypt` now write authenticated v2 payloads by default.
@@ -21,6 +22,8 @@ All notable changes to this project will be documented in this file. Each step i
 - `processConfig` now validates non-string policies, path options, serializer output, collisions, and circular structures; opaque values are preserved by `ignore`, while `stringify` fails closed for values that cannot be converted without type loss.
 - Selective processing applies non-string policies only to selected leaves, and YAML timestamp values are no longer collapsed into empty objects during CLI traversal.
 - Normal CLI encrypt/decrypt writes now use the shared atomic temporary-file writer, verify that the source did not change after reading, preserve source or existing-output modes, reject symbolic-link paths, and clean up temporary files after failures.
+- CLI help now warns that YAML presentation details are normalized during writes and points users toward `--dry-run` or `--output` workflows.
+- YAML and JSON parse failures now report sanitized diagnostics without echoing source lines that may contain secrets.
 
 ## [0.3.0] - 2025-12-01
 ### Added

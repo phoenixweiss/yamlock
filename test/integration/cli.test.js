@@ -215,6 +215,102 @@ test('CLI preserves YAML timestamps as opaque values', () => {
   assert.match(encrypted.secret, /^yl\|2\|/);
 });
 
+test('CLI documents and applies YAML rewrite normalization', () => {
+  const root = mkdtempSync(join(tmpdir(), 'yamlock-yaml-rewrite-'));
+  const filePath = join(root, 'config.yaml');
+  const source = `# top comment
+defaults: &defaults
+  token: secret # inline comment
+  retries: 3
+service:
+  <<: *defaults
+  label: "quoted"
+alias: *defaults
+flow: { enabled: true, values: [one, two] }
+explicit: !!str 123
+folded: >
+  folded
+  value
+`;
+  writeFileSync(filePath, source);
+
+  const result = runCli([
+    'encrypt',
+    filePath,
+    '--key',
+    KEY,
+    '--paths',
+    'defaults.token'
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+
+  const rewritten = readFileSync(filePath, 'utf8');
+  assert.doesNotMatch(rewritten, /# top comment|# inline comment/);
+  assert.doesNotMatch(rewritten, /&defaults|\*defaults|<<:|!!str/);
+  assert.doesNotMatch(rewritten, /flow: \{/);
+
+  const parsed = yaml.load(rewritten);
+  assert.match(parsed.defaults.token, /^yl\|2\|/);
+  assert.equal(parsed.defaults.retries, 3);
+  assert.equal(parsed.service.token, 'secret');
+  assert.equal(parsed.alias.token, 'secret');
+  assert.equal(parsed.service.label, 'quoted');
+  assert.deepEqual(parsed.flow, { enabled: true, values: ['one', 'two'] });
+  assert.equal(parsed.explicit, '123');
+  assert.equal(parsed.folded, 'folded value\n');
+});
+
+test('CLI preserves raw YAML bytes when encryption is a no-op', () => {
+  const root = mkdtempSync(join(tmpdir(), 'yamlock-yaml-noop-'));
+  const filePath = join(root, 'config.yaml');
+  const source = `# keep this comment
+defaults: &defaults
+  token: secret
+alias: *defaults
+`;
+  writeFileSync(filePath, source);
+
+  const result = runCli([
+    'encrypt',
+    filePath,
+    '--key',
+    KEY,
+    '--paths',
+    'missing.path'
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /No files were modified/);
+  assert.equal(readFileSync(filePath, 'utf8'), source);
+});
+
+test('CLI rejects unknown custom YAML tags without rewriting the source', () => {
+  const root = mkdtempSync(join(tmpdir(), 'yamlock-yaml-tag-'));
+  const filePath = join(root, 'config.yaml');
+  const source = 'value: !vault secret\n';
+  writeFileSync(filePath, source);
+
+  const result = runCli(['encrypt', filePath, '--key', KEY]);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /\[yamlock:ERR_READ_FAILED]/);
+  assert.match(result.stderr, /unknown tag/i);
+  assert.doesNotMatch(result.stderr, /secret/);
+  assert.equal(readFileSync(filePath, 'utf8'), source);
+});
+
+test('CLI parse errors do not echo invalid JSON contents', () => {
+  const root = mkdtempSync(join(tmpdir(), 'yamlock-json-error-'));
+  const filePath = join(root, 'config.json');
+  const source = '{"value":"secret-marker", invalid}';
+  writeFileSync(filePath, source);
+
+  const result = runCli(['encrypt', filePath, '--key', KEY]);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /\[yamlock:ERR_READ_FAILED]/);
+  assert.match(result.stderr, /Invalid JSON syntax/);
+  assert.doesNotMatch(result.stderr, /secret-marker|invalid}/);
+  assert.equal(readFileSync(filePath, 'utf8'), source);
+});
+
 test('CLI fails when key is missing', () => {
   const filePath = createTempFile({ value: 'secret' });
   const result = runCli(['encrypt', filePath]);
@@ -466,6 +562,14 @@ test('CLI version command prints package version', () => {
   const result = runCli(['version']);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout.trim(), new RegExp(`^yamlock ${packageJson.version}`));
+});
+
+test('CLI help warns about YAML rewrite normalization', () => {
+  const result = runCli([]);
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /YAML rewrite note:/);
+  assert.match(result.stdout, /not\s+preserved byte-for-byte/);
+  assert.match(result.stdout, /--dry-run or --output/);
 });
 
 test('CLI algorithms command separates tested vs available lists', () => {

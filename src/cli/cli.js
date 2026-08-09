@@ -93,6 +93,10 @@ Options:
   --force-encrypt          (encrypt) Encrypt selected yl|... strings as plaintext.
   --length <bytes>         (keygen) Random bytes to generate, 1-${KEYGEN_MAX_LENGTH} (default: 32).
   --format <hex|base64>    (keygen) Output format (default: base64).
+
+YAML rewrite note:
+  Comments, anchors/aliases, explicit tags, quoting, and formatting are not
+  preserved byte-for-byte. Use --dry-run or --output before replacing a file.
 `;
 }
 
@@ -123,6 +127,26 @@ function readConfigFile(filePath) {
   }
 
   return { format, data: JSON.parse(content), raw: content, stat };
+}
+
+function describeReadFailure(error) {
+  if (typeof error?.reason === 'string') {
+    const line = Number.isInteger(error.mark?.line) ? error.mark.line + 1 : null;
+    const column = Number.isInteger(error.mark?.column) ? error.mark.column + 1 : null;
+    const location = line && column ? ` at line ${line}, column ${column}` : '';
+    return `Invalid YAML: ${error.reason}${location}.`;
+  }
+
+  if (error instanceof SyntaxError) {
+    return 'Invalid JSON syntax.';
+  }
+
+  const fileErrors = {
+    EACCES: 'Input file is not readable.',
+    EISDIR: 'Input path is a directory, not a file.',
+    ENOENT: 'Input file does not exist.'
+  };
+  return fileErrors[error?.code] ?? 'Unable to read or parse the input file.';
 }
 
 function serializeConfig(format, data) {
@@ -531,7 +555,7 @@ export async function runCli(argv = process.argv) {
   try {
     config = readConfigFile(absolutePath);
   } catch (error) {
-    return fail('ERR_READ_FAILED', `Failed to read config file: ${error.message}`);
+    return fail('ERR_READ_FAILED', describeReadFailure(error));
   }
 
   const outputPath = options.output
