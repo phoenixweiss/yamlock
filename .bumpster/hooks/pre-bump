@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project_root="$(git rev-parse --show-toplevel)"
+cd "$project_root"
+
+: "${BUMPSTER_PREV_VERSION:?Bumpster did not provide the previous version.}"
+: "${BUMPSTER_NEW_VERSION:?Bumpster did not provide the new version.}"
+: "${BUMPSTER_RELEASE_TYPE:?Bumpster did not provide the release type.}"
+
+current_version="$(tr -d '[:space:]' < VERSION)"
+if [[ "$current_version" != "$BUMPSTER_PREV_VERSION" ]]; then
+  printf 'VERSION is %s, expected Bumpster previous version %s.\n' \
+    "$current_version" "$BUMPSTER_PREV_VERSION" >&2
+  exit 1
+fi
+
+printf 'Running yamlock pre-bump checks for %s -> %s (%s).\n' \
+  "$BUMPSTER_PREV_VERSION" "$BUMPSTER_NEW_VERSION" "$BUMPSTER_RELEASE_TYPE"
+
+yarn install --frozen-lockfile
+yarn check:release --next-version "$BUMPSTER_NEW_VERSION"
+yarn lint
+yarn check:docs
+yarn test:coverage
+yarn test:types
+yarn test:package
+yarn audit
+git diff --check
+
+if [[ -n "$(git status --short)" ]]; then
+  printf 'Pre-bump checks changed the working tree.\n' >&2
+  git status --short >&2
+  exit 1
+fi

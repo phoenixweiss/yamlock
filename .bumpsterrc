@@ -1,0 +1,16 @@
+# yamlock release branches
+GIT_MASTER_BRANCH="main"
+GIT_DEVELOP_BRANCH="dev"
+
+# Keep the Bumpster version source synchronized with the npm package.
+SYNC_WITH_PACKAGE_JSON="true"
+
+# Releases must start from and return to the development branch.
+BEFORE_BUMP_BRANCH="dev"
+AFTER_BUMP_BRANCH="dev"
+
+# Keep release logging opt-in and feature cleanup conservative.
+ENABLE_LOGGING="false"
+LOG_FILE="bumpster.log"
+DELETE_FEATURE_BRANCH_AFTER_MERGE="false"
+ASK_BEFORE_DELETING_FEATURE_BRANCH="true"

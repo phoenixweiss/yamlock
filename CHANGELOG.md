@@ -20,11 +20,13 @@ All notable changes to this project will be documented in this file. Release ver
 - Built-in coverage thresholds plus automated Markdown-link and release-metadata checks.
 - Packaged runnable API and CI/CD examples with regression coverage against the installed distribution.
 - Conventional `help`, `-h`, and `--help` CLI entry points with installed-package smoke coverage.
+- Tracked Bumpster configuration, synchronized `VERSION` metadata, and a pre-bump release gate.
 
 ### Changed
 - Updated `js-yaml` to 4.3.1 to address merge-key, alias, and ordered-map denial-of-service advisories; refreshed ESLint 9 tooling within the existing major version.
 - Package builds now exclude ignored local dotfiles, and tarball smoke checks recursively for local workflow artifacts.
 - CI now covers supported Node.js releases on Linux and macOS, uses current Node 24-based GitHub Actions, and performs a tag-gated package preflight.
+- Development and dependency updates now target `dev`; Bumpster releases atomically synchronize `dev`, `main`, and `vX.Y.Z` tags.
 - `encryptValue`, `processConfig`, and `yamlock encrypt` now write authenticated v2 payloads by default.
 - `decryptValue` and `processConfig` continue to auto-detect and read both legacy and v2 payloads; API callers can request legacy writing explicitly with `formatVersion: 1` or legacy algorithm options.
 - Repeated `processConfig`/CLI encryption now authenticates and preserves existing payloads instead of adding another encryption layer; fully encrypted in-place inputs are not rewritten.

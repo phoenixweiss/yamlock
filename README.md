@@ -342,6 +342,10 @@ default v2 writer for new data.
 
 - The badges at the top show the latest npm version and the status of the full CI matrix.
 - See [CHANGELOG.md](CHANGELOG.md) for detailed release notes; install a specific tag via `npm install yamlock@<version>`.
+- yamlock versions are bumped with my own release utility,
+  [Bumpster](https://github.com/phoenixweiss/Bumpster). It keeps the tracked
+  `VERSION` file and `package.json` synchronized while publishing the `dev`,
+  `main`, and `vX.Y.Z` Git refs atomically.
 
 ### Encrypted value formats
 

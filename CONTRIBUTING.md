@@ -7,6 +7,7 @@ Thanks for your interest in improving yamlock! This document describes how to se
 - Node.js 22.x (via `asdf install nodejs 22`)
 - Yarn Classic 1.22.22
 - macOS or Linux environment (CLI integration tests spawn subprocesses)
+- Bumpster 1.2.0 or newer for maintainer release operations
 
 ## Local development
 
@@ -41,13 +42,36 @@ loads `dist` while `src` is absent.
 - Update documentation (`README.md`, `CHANGELOG.md`, etc.) when behavior changes.
 - Reference related issues in the PR description (e.g., “Fixes #42”).
 
+## Branch workflow
+
+- `dev` is the integration branch for normal development, pull requests, and
+  dependency updates.
+- `main` represents the latest released state and is updated from `dev` by the
+  Bumpster release flow.
+- Both branches run the complete CI matrix. Release tags run the same matrix
+  plus the installed-package preflight.
+
 ## Release process
 
-1. Finalize the planned feature set for the release (e.g., a milestone or issue bundle).
-2. Update `CHANGELOG.md` with the new version entry.
-3. Bump the `package.json` version and create a matching tag without the `v` prefix.
-4. Run the complete local check set above, followed by `yarn check:release --tag <version>`.
-5. Push commits and tags.
-6. When a public release is ready, run `npm publish` from a clean main branch.
+Maintainer releases use
+[Bumpster](https://github.com/phoenixweiss/Bumpster) from a clean, synchronized
+`dev` branch. Historical pre-1.0 tags omit the `v` prefix; Bumpster-managed
+releases starting with `v1.0.0` use `vX.Y.Z` tags.
+
+1. Finalize the feature set and verify that `dev` contains the current `main`.
+2. Move the accumulated notes into a dated target section in `CHANGELOG.md`,
+   leave a new empty `[Unreleased]` section, then commit and push that release
+   preparation on `dev`.
+3. Run the complete local check set above and
+   `yarn check:release --next-version <X.Y.Z>`.
+4. After explicit release approval, run `bumpster --major`, `--minor`, or
+   `--patch`. The project pre-bump hook repeats the release checks before any
+   mutation.
+5. Bumpster synchronizes `VERSION` and `package.json`, creates
+   `bump version to X.Y.Z`, updates `main`, creates `vX.Y.Z`, atomically pushes
+   `dev`, `main`, and the tag, then returns to `dev`.
+6. Wait for the exact tag's full CI and release-package preflight to pass.
+7. After separate publication approval, publish from the verified release
+   commit and confirm the npm dist-tag, registry installation, CLI, and API.
 
 Thank you for helping make yamlock better!

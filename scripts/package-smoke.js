@@ -122,7 +122,17 @@ function main() {
         `Installed package is missing ${requiredPath.join('/')}.`
       );
     }
-    for (const excludedPath of ['src', 'test', 'scripts', 'AGENTS.md', 'todo.tmp.md']) {
+    for (const excludedPath of [
+      '.bumpster',
+      '.bumpsterrc',
+      '.github',
+      'VERSION',
+      'src',
+      'test',
+      'scripts',
+      'AGENTS.md',
+      'todo.tmp.md'
+    ]) {
       assert.equal(
         existsSync(join(installedRoot, excludedPath)),
         false,
