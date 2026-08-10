@@ -16,8 +16,10 @@ All notable changes to this project will be documented in this file. Each step i
 - Edge-case regression coverage for empty containers, sparse arrays, special and Unicode keys, empty strings, and large values.
 - Automated npm tarball smoke coverage for package contents, public API imports, and the installed distribution-first CLI.
 - Stable public Node.js error classes and `ERR_*` codes for validation, payload, authentication, legacy decryption, and config-processing failures.
+- Bundled TypeScript declarations and a documented `1.x` stability contract for the public Node.js API.
 
 ### Changed
+- Package builds now exclude ignored local dotfiles, and tarball smoke checks recursively for local workflow artifacts.
 - `encryptValue`, `processConfig`, and `yamlock encrypt` now write authenticated v2 payloads by default.
 - `decryptValue` and `processConfig` continue to auto-detect and read both legacy and v2 payloads; API callers can request legacy writing explicitly with `formatVersion: 1` or legacy algorithm options.
 - Repeated `processConfig`/CLI encryption now authenticates and preserves existing payloads instead of adding another encryption layer; fully encrypted in-place inputs are not rewritten.

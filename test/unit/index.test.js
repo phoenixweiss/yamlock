@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+import * as yamlock from '../../src/index.js';
 import {
   encryptValue,
   decryptValue,
@@ -18,6 +19,23 @@ import {
 
 const KEY = 'unit-test-secret-key';
 const FIELD = 'path.to.value';
+
+test('public API surface matches the 1.x contract', () => {
+  assert.deepEqual(Object.keys(yamlock).sort(), [
+    'YAMLOCK_ERROR_CODES',
+    'YamlockAuthenticationError',
+    'YamlockConfigError',
+    'YamlockDecryptionError',
+    'YamlockError',
+    'YamlockPayloadError',
+    'YamlockValidationError',
+    'decryptValue',
+    'encryptValue',
+    'getSupportedAlgorithms',
+    'processConfig',
+    'serializePath'
+  ]);
+});
 
 test('public API exports expected helpers', () => {
   assert.equal(typeof encryptValue, 'function');

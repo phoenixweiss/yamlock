@@ -15,6 +15,7 @@ Thanks for your interest in improving yamlock! This document describes how to se
 3. Use these scripts:
    - `yarn lint` – ESLint flat config
    - `yarn test` – Node test runner for unit + integration suites; integration tests invoke `bin/yamlock` in an explicit source mode, so a stale local `dist` cannot affect results
+   - `yarn test:types` – build and type-check a strict TypeScript consumer against the public package entry point
    - `yarn build` – copy `src` into `dist` for package and distribution checks
    - `yarn test:package` – build, pack, install, and smoke-test the public API and installed CLI from an isolated temporary project
 

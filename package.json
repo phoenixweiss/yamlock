@@ -6,8 +6,10 @@
   "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
     "./package.json": "./package.json"
@@ -34,10 +36,11 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "build": "rimraf dist && cp -R src dist",
+    "build": "rimraf dist && mkdir -p dist && cp -R src/* dist/",
     "lint": "eslint .",
     "prepare": "yarn run build",
     "test": "node --test",
+    "test:types": "yarn run build && tsc --project test/types/tsconfig.json",
     "test:package": "yarn run build && node scripts/package-smoke.js"
   },
   "repository": {
@@ -53,8 +56,10 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
+    "@types/node": "^22.0.0",
     "eslint": "^9.0.0",
     "globals": "^15.0.0",
-    "rimraf": "^5.0.5"
+    "rimraf": "^5.0.5",
+    "typescript": "^5.9.2"
   }
 }

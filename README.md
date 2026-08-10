@@ -153,6 +153,10 @@ codes. Specialized classes distinguish validation, payload, authentication,
 legacy decryption, and config-processing failures; `YAMLOCK_ERROR_CODES` avoids
 repeating code strings. See the [Node.js error contract](docs/errors.md).
 
+The package includes TypeScript declarations. The supported exports, option
+types, and `1.x` compatibility guarantees are listed in the
+[public Node.js API contract](docs/api.md).
+
 Repeated encryption is safe by default. `processConfig` authenticates selected
 existing payloads with the supplied key and field path, preserves them
 unchanged, and encrypts only selected plaintext values. Use

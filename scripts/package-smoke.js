@@ -15,6 +15,12 @@ import { fileURLToPath } from 'node:url';
 
 const PROJECT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const NPM_COMMAND = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const TYPESCRIPT_COMMAND = join(
+  PROJECT_ROOT,
+  'node_modules',
+  '.bin',
+  process.platform === 'win32' ? 'tsc.cmd' : 'tsc'
+);
 const SMOKE_KEY = 'package-smoke-test-key';
 
 function run(command, args, options = {}) {
@@ -45,6 +51,16 @@ function readJson(filePath) {
   return JSON.parse(readFileSync(filePath, 'utf8'));
 }
 
+function listRelativeFiles(root, relativeDirectory = '') {
+  return readdirSync(join(root, relativeDirectory), { withFileTypes: true })
+    .flatMap((entry) => {
+      const relativePath = join(relativeDirectory, entry.name);
+      return entry.isDirectory()
+        ? listRelativeFiles(root, relativePath)
+        : [relativePath];
+    });
+}
+
 function main() {
   assert.ok(
     existsSync(join(PROJECT_ROOT, 'dist', 'index.js')),
@@ -73,7 +89,7 @@ function main() {
 
     writeFileSync(
       join(projectDirectory, 'package.json'),
-      `${JSON.stringify({ name: 'yamlock-package-smoke', private: true }, null, 2)}\n`
+      `${JSON.stringify({ name: 'yamlock-package-smoke', private: true, type: 'module' }, null, 2)}\n`
     );
     run(NPM_COMMAND, [
       'install',
@@ -90,8 +106,10 @@ function main() {
     assert.equal(installedPackage.version, sourcePackage.version);
     for (const requiredPath of [
       ['dist', 'index.js'],
+      ['dist', 'index.d.ts'],
       ['dist', 'cli', 'cli.js'],
       ['bin', 'yamlock'],
+      ['docs', 'api.md'],
       ['docs', 'errors.md'],
       ['README.md'],
       ['LICENSE']
@@ -108,6 +126,19 @@ function main() {
         `Installed package must not contain ${excludedPath}.`
       );
     }
+    const forbiddenFiles = listRelativeFiles(installedRoot).filter((filePath) => {
+      const fileName = basename(filePath);
+      return (
+        fileName === '.DS_Store' ||
+        fileName === 'AGENTS.md' ||
+        fileName.endsWith('.tmp.md')
+      );
+    });
+    assert.deepEqual(
+      forbiddenFiles,
+      [],
+      `Installed package contains ignored local files: ${forbiddenFiles.join(', ')}`
+    );
 
     const apiSmoke = `
       import assert from 'node:assert/strict';
@@ -148,6 +179,29 @@ function main() {
       );
     `;
     run(process.execPath, ['--input-type=module', '--eval', apiSmoke], {
+      cwd: projectDirectory
+    });
+
+    writeFileSync(
+      join(projectDirectory, 'consumer.ts'),
+      readFileSync(join(PROJECT_ROOT, 'fixtures', 'types', 'consumer.ts'), 'utf8')
+    );
+    writeFileSync(
+      join(projectDirectory, 'tsconfig.json'),
+      `${JSON.stringify({
+        compilerOptions: {
+          module: 'NodeNext',
+          moduleResolution: 'NodeNext',
+          noEmit: true,
+          strict: true,
+          target: 'ES2022',
+          typeRoots: [join(PROJECT_ROOT, 'node_modules', '@types')],
+          types: ['node']
+        },
+        files: ['consumer.ts']
+      }, null, 2)}\n`
+    );
+    run(TYPESCRIPT_COMMAND, ['--project', 'tsconfig.json'], {
       cwd: projectDirectory
     });
 
