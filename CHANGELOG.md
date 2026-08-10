@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file. Each step i
 - YAML rewrite documentation and regression coverage for comments, formatting, anchors, aliases, merge keys, and explicit/custom tags.
 - Public `serializePath(segments)` helper for constructing canonical field paths without string ambiguity.
 - Edge-case regression coverage for empty containers, sparse arrays, special and Unicode keys, empty strings, and large values.
+- Automated npm tarball smoke coverage for package contents, public API imports, and the installed distribution-first CLI.
 
 ### Changed
 - `encryptValue`, `processConfig`, and `yamlock encrypt` now write authenticated v2 payloads by default.

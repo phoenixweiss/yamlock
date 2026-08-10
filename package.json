@@ -36,7 +36,8 @@
     "build": "rimraf dist && cp -R src dist",
     "lint": "eslint .",
     "prepare": "yarn run build",
-    "test": "node --test"
+    "test": "node --test",
+    "test:package": "yarn run build && node scripts/package-smoke.js"
   },
   "repository": {
     "type": "git",

@@ -16,10 +16,12 @@ Thanks for your interest in improving yamlock! This document describes how to se
    - `yarn lint` – ESLint flat config
    - `yarn test` – Node test runner for unit + integration suites; integration tests invoke `bin/yamlock` in an explicit source mode, so a stale local `dist` cannot affect results
    - `yarn build` – copy `src` into `dist` for package and distribution checks
+   - `yarn test:package` – build, pack, install, and smoke-test the public API and installed CLI from an isolated temporary project
 
-Before submitting code, ensure `yarn lint`, `yarn test`, and `yarn build` pass
-locally. `YAMLOCK_TEST_SOURCE=1` is reserved for the repository integration
-suite; normal CLI and installed-package checks continue to load `dist` first.
+Before submitting code, ensure `yarn lint`, `yarn test`, and
+`yarn test:package` pass locally. `YAMLOCK_TEST_SOURCE=1` is reserved for the
+repository integration suite; the package smoke verifies that the installed CLI
+loads `dist` while `src` is absent.
 
 ## Issues
 
@@ -39,7 +41,7 @@ suite; normal CLI and installed-package checks continue to load `dist` first.
 1. Finalize the planned feature set for the release (e.g., a milestone or issue bundle).
 2. Update `CHANGELOG.md` with the new version entry.
 3. Bump the `package.json` version (and tag it without the `v` prefix).
-4. Run `yarn lint`, `yarn test`, and `yarn build`.
+4. Run `yarn lint`, `yarn test`, and `yarn test:package`.
 5. Push commits and tags.
 6. When a public release is ready, run `npm publish` from a clean main branch.
 
