@@ -5,6 +5,7 @@
   "description": "Value-level encryption for YAML/JSON configuration files with CLI + Node.js APIs.",
   "license": "MIT",
   "type": "module",
+  "packageManager": "yarn@1.22.22",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -37,9 +38,12 @@
   },
   "scripts": {
     "build": "rimraf dist && mkdir -p dist && cp -R src/* dist/",
+    "check:docs": "node scripts/check-docs.js",
+    "check:release": "node scripts/release-check.js",
     "lint": "eslint .",
     "prepare": "yarn run build",
     "test": "node --test",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-include='src/**/*.js' --test-coverage-lines=90 --test-coverage-branches=80 --test-coverage-functions=95",
     "test:types": "yarn run build && tsc --project test/types/tsconfig.json",
     "test:package": "yarn run build && node scripts/package-smoke.js"
   },
