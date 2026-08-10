@@ -56,12 +56,12 @@
   },
   "homepage": "https://github.com/phoenixweiss/yamlock#readme",
   "dependencies": {
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^4.3.1"
   },
   "devDependencies": {
-    "@eslint/js": "^9.0.0",
+    "@eslint/js": "^9.39.5",
     "@types/node": "^22.0.0",
-    "eslint": "^9.0.0",
+    "eslint": "^9.39.5",
     "globals": "^15.0.0",
     "rimraf": "^5.0.5",
     "typescript": "^5.9.2"

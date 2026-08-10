@@ -20,6 +20,7 @@ All notable changes to this project will be documented in this file. Each step i
 - Built-in coverage thresholds plus automated Markdown-link and release-metadata checks.
 
 ### Changed
+- Updated `js-yaml` to 4.3.1 to address merge-key, alias, and ordered-map denial-of-service advisories; refreshed ESLint 9 tooling within the existing major version.
 - Package builds now exclude ignored local dotfiles, and tarball smoke checks recursively for local workflow artifacts.
 - CI now covers supported Node.js releases on Linux and macOS, uses current Node 24-based GitHub Actions, and performs a tag-gated package preflight.
 - `encryptValue`, `processConfig`, and `yamlock encrypt` now write authenticated v2 payloads by default.
