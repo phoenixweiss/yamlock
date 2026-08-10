@@ -3,3 +3,12 @@ export { decryptValue } from './crypto/decrypt.js';
 export { processConfig } from './utils/config.js';
 export { serializePath } from './utils/path.js';
 export { listSupportedAlgorithms as getSupportedAlgorithms } from './crypto/utils.js';
+export {
+  YAMLOCK_ERROR_CODES,
+  YamlockAuthenticationError,
+  YamlockConfigError,
+  YamlockDecryptionError,
+  YamlockError,
+  YamlockPayloadError,
+  YamlockValidationError
+} from './errors.js';

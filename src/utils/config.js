@@ -2,6 +2,7 @@ import { encryptValue } from '../crypto/encrypt.js';
 import { decryptValue } from '../crypto/decrypt.js';
 import { detectPayloadVersion } from '../crypto/payload-v2.js';
 import { isYamlockPayload } from '../crypto/utils.js';
+import { YamlockConfigError } from '../errors.js';
 import { serializeLegacyPath, serializePath } from './path.js';
 
 const MODES = {
@@ -13,9 +14,7 @@ const NON_STRING_POLICIES = new Set(['ignore', 'stringify', 'error']);
 const EXISTING_PAYLOAD_POLICIES = new Set(['preserve', 'error', 'encrypt']);
 
 function createConfigError(code, message) {
-  const error = new Error(message);
-  error.code = code;
-  return error;
+  return new YamlockConfigError(message, { code });
 }
 
 function isConfigContainer(value) {
@@ -168,7 +167,7 @@ export function processConfig(node, options) {
 
   const mode = options.mode;
   if (mode !== MODES.ENCRYPT && mode !== MODES.DECRYPT) {
-    throw new Error(`Unknown processConfig mode: ${mode}`);
+    throw createConfigError('ERR_INVALID_MODE', `Unknown processConfig mode: ${mode}`);
   }
 
   if (mode !== MODES.ENCRYPT && options.existingPayloadPolicy !== undefined) {

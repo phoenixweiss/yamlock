@@ -661,11 +661,14 @@ export async function runCli(argv = process.argv) {
     print(getHelpText().trim());
     return fail('ERR_UNKNOWN_COMMAND', `Unknown command: ${command}`);
   } catch (error) {
-    const code = typeof error.code === 'string' && error.code.startsWith('ERR_')
+    const structuredCode = typeof error.code === 'string' && error.code.startsWith('ERR_')
       ? error.code
-      : command === 'migrate'
-        ? 'ERR_MIGRATION_FAILED'
-        : 'ERR_PROCESS_FAILED';
+      : null;
+    const code = command === 'migrate'
+      ? structuredCode?.startsWith('ERR_MIGRATION_')
+        ? structuredCode
+        : 'ERR_MIGRATION_FAILED'
+      : structuredCode ?? 'ERR_PROCESS_FAILED';
     return fail(code, `Operation failed: ${error.message}`);
   }
 }

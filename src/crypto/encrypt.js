@@ -1,6 +1,10 @@
 import { createCipheriv } from 'node:crypto';
 
 import {
+  YAMLOCK_ERROR_CODES,
+  YamlockValidationError
+} from '../errors.js';
+import {
   DEFAULT_ALGORITHM,
   deriveKey,
   encodeFieldPathSalt,
@@ -36,14 +40,27 @@ function validateV2Options(input) {
     return;
   }
 
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+    throw new YamlockValidationError(
+      'yamlock v2 options must be an object.',
+      { code: YAMLOCK_ERROR_CODES.INVALID_OPTIONS }
+    );
+  }
+
   if (input.algorithm !== undefined && input.algorithm !== V2_ALGORITHM) {
-    throw new Error(`yamlock v2 only supports ${V2_ALGORITHM}.`);
+    throw new YamlockValidationError(
+      `yamlock v2 only supports ${V2_ALGORITHM}.`,
+      { code: YAMLOCK_ERROR_CODES.UNSUPPORTED_ALGORITHM }
+    );
   }
 
   const unsupportedOverrides = ['keyLength', 'ivLength', 'authTagLength'];
   const override = unsupportedOverrides.find((name) => input[name] !== undefined);
   if (override) {
-    throw new Error(`yamlock v2 does not support the ${override} override.`);
+    throw new YamlockValidationError(
+      `yamlock v2 does not support the ${override} override.`,
+      { code: YAMLOCK_ERROR_CODES.INVALID_OPTIONS }
+    );
   }
 }
 
@@ -64,7 +81,10 @@ function resolveOptions(input) {
  */
 export function encryptValue(value, key, fieldPath, algorithmOptions) {
   if (typeof value !== 'string') {
-    throw new Error('encryptValue expects the value to be a string.');
+    throw new YamlockValidationError(
+      'encryptValue expects the value to be a string.',
+      { code: YAMLOCK_ERROR_CODES.INVALID_VALUE }
+    );
   }
 
   if (isV2Request(algorithmOptions)) {
@@ -78,7 +98,10 @@ export function encryptValue(value, key, fieldPath, algorithmOptions) {
     algorithmOptions.formatVersion !== undefined &&
     algorithmOptions.formatVersion !== 1
   ) {
-    throw new Error(`Unsupported yamlock payload version: ${algorithmOptions.formatVersion}`);
+    throw new YamlockValidationError(
+      `Unsupported yamlock payload version: ${algorithmOptions.formatVersion}`,
+      { code: YAMLOCK_ERROR_CODES.UNSUPPORTED_PAYLOAD_VERSION }
+    );
   }
 
   const resolvedOptions = resolveOptions(algorithmOptions);
@@ -86,21 +109,35 @@ export function encryptValue(value, key, fieldPath, algorithmOptions) {
   const iv = generateIv(resolvedOptions);
   const salt = encodeFieldPathSalt(fieldPath);
 
-  const cipherOptions = resolvedOptions.authTagLength ? { authTagLength: resolvedOptions.authTagLength } : undefined;
-  const cipher = createCipheriv(resolvedOptions.algorithm, derivedKey, iv, cipherOptions);
-  let encrypted = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
-  if (resolvedOptions.authTagLength) {
-    if (typeof cipher.getAuthTag !== 'function') {
-      throw new Error(`Algorithm ${resolvedOptions.algorithm} requires auth tags but getAuthTag is unavailable.`);
+  try {
+    const cipherOptions = resolvedOptions.authTagLength ? { authTagLength: resolvedOptions.authTagLength } : undefined;
+    const cipher = createCipheriv(resolvedOptions.algorithm, derivedKey, iv, cipherOptions);
+    let encrypted = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
+    if (resolvedOptions.authTagLength) {
+      if (typeof cipher.getAuthTag !== 'function') {
+        throw new YamlockValidationError(
+          `Algorithm ${resolvedOptions.algorithm} requires auth tags but getAuthTag is unavailable.`,
+          { code: YAMLOCK_ERROR_CODES.UNSUPPORTED_ALGORITHM }
+        );
+      }
+      const authTag = cipher.getAuthTag();
+      encrypted = Buffer.concat([encrypted, authTag]);
     }
-    const authTag = cipher.getAuthTag();
-    encrypted = Buffer.concat([encrypted, authTag]);
-  }
 
-  return formatPayload({
-    algorithm: resolvedOptions.algorithm,
-    salt,
-    iv,
-    data: encrypted
-  });
+    return formatPayload({
+      algorithm: resolvedOptions.algorithm,
+      salt,
+      iv,
+      data: encrypted
+    });
+  } catch (cause) {
+    if (cause instanceof YamlockValidationError) {
+      throw cause;
+    }
+
+    throw new YamlockValidationError('Legacy encryption options are invalid.', {
+      code: YAMLOCK_ERROR_CODES.INVALID_OPTIONS,
+      cause
+    });
+  }
 }

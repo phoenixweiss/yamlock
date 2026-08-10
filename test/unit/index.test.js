@@ -4,6 +4,13 @@ import assert from 'node:assert/strict';
 import {
   encryptValue,
   decryptValue,
+  YAMLOCK_ERROR_CODES,
+  YamlockAuthenticationError,
+  YamlockConfigError,
+  YamlockDecryptionError,
+  YamlockError,
+  YamlockPayloadError,
+  YamlockValidationError,
   processConfig,
   serializePath,
   getSupportedAlgorithms
@@ -18,6 +25,13 @@ test('public API exports expected helpers', () => {
   assert.equal(typeof processConfig, 'function');
   assert.equal(typeof serializePath, 'function');
   assert.equal(typeof getSupportedAlgorithms, 'function');
+  assert.equal(typeof YAMLOCK_ERROR_CODES, 'object');
+  assert.equal(typeof YamlockError, 'function');
+  assert.equal(typeof YamlockValidationError, 'function');
+  assert.equal(typeof YamlockPayloadError, 'function');
+  assert.equal(typeof YamlockAuthenticationError, 'function');
+  assert.equal(typeof YamlockDecryptionError, 'function');
+  assert.equal(typeof YamlockConfigError, 'function');
 });
 
 test('serializePath exposes canonical paths through the public API', () => {

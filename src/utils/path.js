@@ -1,8 +1,16 @@
+import {
+  YAMLOCK_ERROR_CODES,
+  YamlockValidationError
+} from '../errors.js';
+
 const RESERVED_PATH_CHARACTERS = new Set(['\\', '.', '[', ']', ',']);
 
 function validateSegments(segments, functionName) {
   if (!Array.isArray(segments) || segments.length === 0) {
-    throw new Error(`${functionName} requires a non-empty segments array.`);
+    throw new YamlockValidationError(
+      `${functionName} requires a non-empty segments array.`,
+      { code: YAMLOCK_ERROR_CODES.INVALID_PATH_SEGMENTS }
+    );
   }
 
   const invalid = segments.some((segment) => (
@@ -10,7 +18,10 @@ function validateSegments(segments, functionName) {
     (!Number.isInteger(segment) || segment < 0)
   ));
   if (invalid) {
-    throw new Error('Path segments must be non-empty strings or non-negative integers.');
+    throw new YamlockValidationError(
+      'Path segments must be non-empty strings or non-negative integers.',
+      { code: YAMLOCK_ERROR_CODES.INVALID_PATH_SEGMENTS }
+    );
   }
 }
 

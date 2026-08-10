@@ -148,6 +148,11 @@ const locked = processConfig(config, { mode: 'encrypt', key: process.env.YAMLOCK
 const unlocked = processConfig(locked, { mode: 'decrypt', key: process.env.YAMLOCK_KEY });
 ```
 
+Expected Node.js API failures extend `YamlockError` and expose stable `ERR_*`
+codes. Specialized classes distinguish validation, payload, authentication,
+legacy decryption, and config-processing failures; `YAMLOCK_ERROR_CODES` avoids
+repeating code strings. See the [Node.js error contract](docs/errors.md).
+
 Repeated encryption is safe by default. `processConfig` authenticates selected
 existing payloads with the supplied key and field path, preserves them
 unchanged, and encrypts only selected plaintext values. Use
@@ -377,7 +382,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development workflow, available scrip
 
 ## Future work
 
-- Stable public error classes and codes for the Node.js API.
 - An async encryption API with bounded scrypt concurrency for large configs.
 - Stricter file-format validation and preservation rules for advanced YAML features.
 

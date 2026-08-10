@@ -1,5 +1,11 @@
 import { createHash, getCipherInfo, getCiphers, randomBytes } from 'node:crypto';
 
+import {
+  YAMLOCK_ERROR_CODES,
+  YamlockPayloadError,
+  YamlockValidationError
+} from '../errors.js';
+
 export const YAMLOCK_PREFIX = 'yl';
 export const YAMLOCK_DELIMITER = '|';
 export const DEFAULT_ALGORITHM = 'aes-256-cbc';
@@ -26,20 +32,32 @@ export function listSupportedAlgorithms() {
  */
 export function ensureAlgorithm(algorithm) {
   if (!algorithm) {
-    throw new Error('Encryption algorithm is required.');
+    throw new YamlockValidationError('Encryption algorithm is required.', {
+      code: YAMLOCK_ERROR_CODES.UNSUPPORTED_ALGORITHM
+    });
   }
 
   if (!listSupportedAlgorithms().includes(algorithm)) {
-    throw new Error(`Unsupported algorithm: ${algorithm}`);
+    throw new YamlockValidationError(`Unsupported algorithm: ${algorithm}`, {
+      code: YAMLOCK_ERROR_CODES.UNSUPPORTED_ALGORITHM
+    });
   }
 
   return algorithm;
 }
 
 function normalizeAlgorithmInput(input) {
-  if (!input || typeof input === 'string') {
+  if (input === undefined || typeof input === 'string') {
     return { algorithm: input };
   }
+
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+    throw new YamlockValidationError(
+      'Algorithm options must be an object or algorithm string.',
+      { code: YAMLOCK_ERROR_CODES.INVALID_OPTIONS }
+    );
+  }
+
   return input;
 }
 
@@ -61,6 +79,19 @@ export function resolveAlgorithmOptions(input) {
   const ivLength = normalized.ivLength ?? preset.ivLength ?? cipherInfo.ivLength ?? 16;
   const authTagLength = normalized.authTagLength ?? preset.authTagLength ?? 0;
 
+  for (const [name, value, minimum] of [
+    ['keyLength', keyLength, 1],
+    ['ivLength', ivLength, 0],
+    ['authTagLength', authTagLength, 0]
+  ]) {
+    if (!Number.isInteger(value) || value < minimum) {
+      throw new YamlockValidationError(
+        `${name} must be an integer greater than or equal to ${minimum}.`,
+        { code: YAMLOCK_ERROR_CODES.INVALID_OPTIONS }
+      );
+    }
+  }
+
   return {
     algorithm: algorithmName,
     keyLength,
@@ -76,13 +107,19 @@ export function resolveAlgorithmOptions(input) {
  * @returns {Buffer}
  */
 export function deriveKey(secret, { algorithm, keyLength }) {
-  if (secret === undefined || secret === null || secret === '') {
-    throw new Error('Encryption key is required to derive a cipher key.');
+  if (
+    (!Buffer.isBuffer(secret) && typeof secret !== 'string') ||
+    secret.length === 0
+  ) {
+    throw new YamlockValidationError(
+      'Encryption key must be a non-empty string or Buffer.',
+      { code: YAMLOCK_ERROR_CODES.INVALID_KEY }
+    );
   }
 
   const baseBuffer = Buffer.isBuffer(secret)
     ? secret
-    : Buffer.from(String(secret), 'utf8');
+    : Buffer.from(secret, 'utf8');
 
   const normalizedAlgorithm = ensureAlgorithm(algorithm);
   const requiredLength = keyLength ?? getCipherInfo(normalizedAlgorithm)?.keyLength ?? 32;
@@ -129,11 +166,14 @@ export function generateIv({ algorithm, ivLength }) {
  * @returns {string}
  */
 export function encodeFieldPathSalt(fieldPath) {
-  if (!fieldPath) {
-    throw new Error('Field path is required to create a salt.');
+  if (typeof fieldPath !== 'string' || fieldPath.length === 0) {
+    throw new YamlockValidationError(
+      'Field path must be a non-empty string.',
+      { code: YAMLOCK_ERROR_CODES.INVALID_FIELD_PATH }
+    );
   }
 
-  return Buffer.from(String(fieldPath), 'utf8').toString('base64');
+  return Buffer.from(fieldPath, 'utf8').toString('base64');
 }
 
 /**
@@ -143,7 +183,9 @@ export function encodeFieldPathSalt(fieldPath) {
  */
 export function decodeFieldPathSalt(salt) {
   if (!salt) {
-    throw new Error('Salt value is required.');
+    throw new YamlockPayloadError('Salt value is required.', {
+      code: YAMLOCK_ERROR_CODES.INVALID_PAYLOAD
+    });
   }
 
   return Buffer.from(String(salt), 'base64').toString('utf8');
@@ -160,7 +202,10 @@ export function decodeFieldPathSalt(salt) {
  */
 export function formatPayload({ algorithm, salt, iv, data }) {
   if (!algorithm || !salt || !iv || !data) {
-    throw new Error('Algorithm, salt, IV, and data are required to format payload.');
+    throw new YamlockValidationError(
+      'Algorithm, salt, IV, and data are required to format payload.',
+      { code: YAMLOCK_ERROR_CODES.INVALID_OPTIONS }
+    );
   }
 
   return [
@@ -191,17 +236,23 @@ export function isYamlockPayload(candidate) {
  */
 export function parsePayload(value) {
   if (!isYamlockPayload(value)) {
-    throw new Error('Value is not a yamlock payload.');
+    throw new YamlockPayloadError('Value is not a yamlock payload.', {
+      code: YAMLOCK_ERROR_CODES.INVALID_PAYLOAD
+    });
   }
 
   const parts = value.split(YAMLOCK_DELIMITER);
   if (parts.length !== 5) {
-    throw new Error('Malformed yamlock payload.');
+    throw new YamlockPayloadError('Malformed yamlock payload.', {
+      code: YAMLOCK_ERROR_CODES.INVALID_PAYLOAD
+    });
   }
 
   const [, algorithm, salt, ivBase64, dataBase64] = parts;
   if (!algorithm || !salt || !ivBase64 || !dataBase64) {
-    throw new Error('Malformed yamlock payload segments.');
+    throw new YamlockPayloadError('Malformed yamlock payload segments.', {
+      code: YAMLOCK_ERROR_CODES.INVALID_PAYLOAD
+    });
   }
 
   return {

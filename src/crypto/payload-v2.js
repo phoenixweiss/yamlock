@@ -6,6 +6,13 @@ import {
 } from 'node:crypto';
 import { TextDecoder } from 'node:util';
 
+import {
+  YAMLOCK_ERROR_CODES,
+  YamlockAuthenticationError,
+  YamlockPayloadError,
+  YamlockValidationError
+} from '../errors.js';
+
 export const V2_FORMAT_VERSION = 2;
 export const V2_ALGORITHM = 'aes-256-gcm';
 export const V2_KDF = 'scrypt';
@@ -25,41 +32,65 @@ const CANONICAL_VERSION_PATTERN = /^(0|[1-9][0-9]*)$/;
 const UTF8_DECODER = new TextDecoder('utf-8', { fatal: true });
 
 function createAuthenticationError() {
-  const error = new Error('Payload authentication failed.');
-  error.code = 'ERR_AUTHENTICATION_FAILED';
-  return error;
+  return new YamlockAuthenticationError();
+}
+
+function createPayloadError(message, code = YAMLOCK_ERROR_CODES.INVALID_PAYLOAD) {
+  return new YamlockPayloadError(message, { code });
+}
+
+function createValidationError(message, code) {
+  return new YamlockValidationError(message, { code });
 }
 
 function normalizeSecret(secret) {
   if (Buffer.isBuffer(secret)) {
     if (secret.length === 0) {
-      throw new Error('Encryption key must not be empty.');
+      throw createValidationError(
+        'Encryption key must not be empty.',
+        YAMLOCK_ERROR_CODES.INVALID_KEY
+      );
     }
     return Buffer.from(secret);
   }
 
   if (typeof secret === 'string') {
     if (secret.length === 0) {
-      throw new Error('Encryption key must not be empty.');
+      throw createValidationError(
+        'Encryption key must not be empty.',
+        YAMLOCK_ERROR_CODES.INVALID_KEY
+      );
     }
     return Buffer.from(secret, 'utf8');
   }
 
-  throw new Error('Encryption key must be a string or Buffer.');
+  throw createValidationError(
+    'Encryption key must be a string or Buffer.',
+    YAMLOCK_ERROR_CODES.INVALID_KEY
+  );
 }
 
 function encodeFieldPath(fieldPath) {
   if (typeof fieldPath !== 'string' || fieldPath.length === 0) {
-    throw new Error('Field path must be a non-empty string.');
+    throw createValidationError(
+      'Field path must be a non-empty string.',
+      YAMLOCK_ERROR_CODES.INVALID_FIELD_PATH
+    );
   }
 
   const bytes = Buffer.from(fieldPath, 'utf8');
   if (bytes.length > V2_MAX_FIELD_PATH_BYTES) {
-    throw new Error(`Field path exceeds ${V2_MAX_FIELD_PATH_BYTES} bytes.`);
+    throw createValidationError(
+      `Field path exceeds ${V2_MAX_FIELD_PATH_BYTES} bytes.`,
+      YAMLOCK_ERROR_CODES.INVALID_FIELD_PATH
+    );
   }
 
   if (UTF8_DECODER.decode(bytes) !== fieldPath) {
-    throw new Error('Field path must contain valid UTF-8 text.');
+    throw createValidationError(
+      'Field path must contain valid UTF-8 text.',
+      YAMLOCK_ERROR_CODES.INVALID_FIELD_PATH
+    );
   }
 
   return bytes.toString('base64url');
@@ -67,24 +98,27 @@ function encodeFieldPath(fieldPath) {
 
 function decodeBase64Url(segment, name, { allowEmpty = false, exactLength, maxLength } = {}) {
   if (typeof segment !== 'string' || (!allowEmpty && segment.length === 0)) {
-    throw new Error(`${name} must not be empty.`);
+    throw createPayloadError(`${name} must not be empty.`);
   }
 
   if (!BASE64URL_PATTERN.test(segment)) {
-    throw new Error(`${name} must use unpadded base64url encoding.`);
+    throw createPayloadError(`${name} must use unpadded base64url encoding.`);
   }
 
   const decoded = Buffer.from(segment, 'base64url');
   if (decoded.toString('base64url') !== segment) {
-    throw new Error(`${name} must use canonical base64url encoding.`);
+    throw createPayloadError(`${name} must use canonical base64url encoding.`);
   }
 
   if (exactLength !== undefined && decoded.length !== exactLength) {
-    throw new Error(`${name} must decode to exactly ${exactLength} bytes.`);
+    throw createPayloadError(`${name} must decode to exactly ${exactLength} bytes.`);
   }
 
   if (maxLength !== undefined && decoded.length > maxLength) {
-    throw new Error(`${name} exceeds ${maxLength} bytes.`);
+    throw createPayloadError(
+      `${name} exceeds ${maxLength} bytes.`,
+      YAMLOCK_ERROR_CODES.PAYLOAD_TOO_LARGE
+    );
   }
 
   return decoded;
@@ -99,11 +133,11 @@ function decodeFieldPath(segment) {
   try {
     fieldPath = UTF8_DECODER.decode(bytes);
   } catch {
-    throw new Error('Field path must contain valid UTF-8 text.');
+    throw createPayloadError('Field path must contain valid UTF-8 text.');
   }
 
   if (fieldPath.length === 0) {
-    throw new Error('Field path must not be empty.');
+    throw createPayloadError('Field path must not be empty.');
   }
 
   return fieldPath;
@@ -111,7 +145,10 @@ function decodeFieldPath(segment) {
 
 function validateMaterial(value, name, expectedLength) {
   if (!Buffer.isBuffer(value) || value.length !== expectedLength) {
-    throw new Error(`${name} must be a ${expectedLength}-byte Buffer.`);
+    throw createValidationError(
+      `${name} must be a ${expectedLength}-byte Buffer.`,
+      YAMLOCK_ERROR_CODES.INVALID_OPTIONS
+    );
   }
   return Buffer.from(value);
 }
@@ -166,16 +203,21 @@ export function isV2Payload(value) {
 
 export function parseV2Payload(value) {
   if (typeof value !== 'string' || !value.startsWith('yl|2|')) {
-    throw new Error('Value is not a yamlock v2 payload.');
+    throw createPayloadError('Value is not a yamlock v2 payload.');
   }
 
   if (Buffer.byteLength(value, 'utf8') > V2_MAX_SERIALIZED_BYTES) {
-    throw new Error(`Payload exceeds ${V2_MAX_SERIALIZED_BYTES} bytes.`);
+    throw createPayloadError(
+      `Payload exceeds ${V2_MAX_SERIALIZED_BYTES} bytes.`,
+      YAMLOCK_ERROR_CODES.PAYLOAD_TOO_LARGE
+    );
   }
 
   const parts = value.split('|');
   if (parts.length !== V2_FIELD_COUNT) {
-    throw new Error(`Malformed yamlock v2 payload: expected ${V2_FIELD_COUNT} fields.`);
+    throw createPayloadError(
+      `Malformed yamlock v2 payload: expected ${V2_FIELD_COUNT} fields.`
+    );
   }
 
   const [
@@ -194,15 +236,24 @@ export function parseV2Payload(value) {
   ] = parts;
 
   if (marker !== 'yl' || version !== String(V2_FORMAT_VERSION)) {
-    throw new Error('Unsupported yamlock payload version.');
+    throw createPayloadError(
+      'Unsupported yamlock payload version.',
+      YAMLOCK_ERROR_CODES.UNSUPPORTED_PAYLOAD_VERSION
+    );
   }
 
   if (algorithm !== V2_ALGORITHM) {
-    throw new Error(`Unsupported yamlock v2 algorithm: ${algorithm}`);
+    throw createPayloadError(
+      `Unsupported yamlock v2 algorithm: ${algorithm}`,
+      YAMLOCK_ERROR_CODES.UNSUPPORTED_PAYLOAD
+    );
   }
 
   if (kdf !== V2_KDF) {
-    throw new Error(`Unsupported yamlock v2 KDF: ${kdf}`);
+    throw createPayloadError(
+      `Unsupported yamlock v2 KDF: ${kdf}`,
+      YAMLOCK_ERROR_CODES.UNSUPPORTED_PAYLOAD
+    );
   }
 
   if (
@@ -210,7 +261,10 @@ export function parseV2Payload(value) {
     blockSize !== String(V2_KDF_PARAMS.r) ||
     parallelization !== String(V2_KDF_PARAMS.p)
   ) {
-    throw new Error('Unsupported yamlock v2 KDF parameters.');
+    throw createPayloadError(
+      'Unsupported yamlock v2 KDF parameters.',
+      YAMLOCK_ERROR_CODES.UNSUPPORTED_PAYLOAD
+    );
   }
 
   const kdfSalt = decodeBase64Url(saltSegment, 'KDF salt', {
@@ -245,12 +299,18 @@ export function parseV2Payload(value) {
 
 export function encryptValueV2(value, secret, fieldPath, testMaterial = {}) {
   if (typeof value !== 'string') {
-    throw new Error('encryptValue expects the value to be a string.');
+    throw createValidationError(
+      'encryptValue expects the value to be a string.',
+      YAMLOCK_ERROR_CODES.INVALID_VALUE
+    );
   }
 
   const plaintext = Buffer.from(value, 'utf8');
   if (plaintext.length > V2_MAX_CIPHERTEXT_BYTES) {
-    throw new Error(`Plaintext exceeds ${V2_MAX_CIPHERTEXT_BYTES} bytes.`);
+    throw createValidationError(
+      `Plaintext exceeds ${V2_MAX_CIPHERTEXT_BYTES} bytes.`,
+      YAMLOCK_ERROR_CODES.VALUE_TOO_LARGE
+    );
   }
 
   const encodedFieldPath = encodeFieldPath(fieldPath);

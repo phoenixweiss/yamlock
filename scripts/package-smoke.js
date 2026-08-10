@@ -92,6 +92,7 @@ function main() {
       ['dist', 'index.js'],
       ['dist', 'cli', 'cli.js'],
       ['bin', 'yamlock'],
+      ['docs', 'errors.md'],
       ['README.md'],
       ['LICENSE']
     ]) {
@@ -114,12 +115,22 @@ function main() {
         decryptValue,
         encryptValue,
         processConfig,
-        serializePath
+        serializePath,
+        YAMLOCK_ERROR_CODES,
+        YamlockValidationError
       } from 'yamlock';
 
       const key = '${SMOKE_KEY}';
       const fieldPath = serializePath(['db.primary', 'token']);
       assert.equal(fieldPath, String.raw\`db\\.primary.token\`);
+
+      assert.throws(
+        () => encryptValue(123, key, 'direct'),
+        (error) => (
+          error instanceof YamlockValidationError &&
+          error.code === YAMLOCK_ERROR_CODES.INVALID_VALUE
+        )
+      );
 
       const direct = encryptValue('fake-direct-secret', key, 'direct');
       assert.equal(decryptValue(direct, key, 'direct'), 'fake-direct-secret');
