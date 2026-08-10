@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file. Each step i
 - Explicit `--force-encrypt` / `existingPayloadPolicy: 'encrypt'` handling for intentional `yl|...` plaintext or nested encryption.
 - YAML rewrite documentation and regression coverage for comments, formatting, anchors, aliases, merge keys, and explicit/custom tags.
 - Public `serializePath(segments)` helper for constructing canonical field paths without string ambiguity.
+- Edge-case regression coverage for empty containers, sparse arrays, special and Unicode keys, empty strings, and large values.
 
 ### Changed
 - `encryptValue`, `processConfig`, and `yamlock encrypt` now write authenticated v2 payloads by default.
@@ -26,6 +27,7 @@ All notable changes to this project will be documented in this file. Each step i
 - CLI help now warns that YAML presentation details are normalized during writes and points users toward `--dry-run` or `--output` workflows.
 - YAML and JSON parse failures now report sanitized diagnostics without echoing source lines that may contain secrets.
 - Default field paths now escape reserved characters in object keys, CLI path lists understand escaped commas, and existing payloads with legacy ambiguous paths remain readable.
+- Config processing and migration now preserve sparse-array length and holes; `processConfig` also retains null prototypes and own keys such as `__proto__` without prototype assignment.
 
 ## [0.3.0] - 2025-12-01
 ### Added

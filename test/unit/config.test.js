@@ -37,6 +37,82 @@ test('processConfig decrypts values back to their original form', () => {
   assert.deepEqual(decrypted, input);
 });
 
+test('processConfig preserves empty containers and sparse array shape', () => {
+  const sparse = new Array(5);
+  sparse[1] = 'secret';
+  sparse[3] = { nested: [] };
+  const input = {
+    emptyObject: {},
+    emptyArray: [],
+    sparse
+  };
+
+  const encrypted = processConfig(input, { mode: 'encrypt', key: KEY });
+  assert.deepEqual(encrypted.emptyObject, {});
+  assert.deepEqual(encrypted.emptyArray, []);
+  assert.equal(encrypted.sparse.length, 5);
+  assert.equal(0 in encrypted.sparse, false);
+  assert.equal(2 in encrypted.sparse, false);
+  assert.equal(4 in encrypted.sparse, false);
+  assert.match(encrypted.sparse[1], /^yl\|2\|/);
+  assert.deepEqual(encrypted.sparse[3], { nested: [] });
+
+  const decrypted = processConfig(encrypted, { mode: 'decrypt', key: KEY });
+  assert.deepEqual(decrypted, input);
+  assert.equal(decrypted.sparse.length, 5);
+});
+
+test('processConfig preserves own special keys and null prototypes', () => {
+  const input = Object.create(null);
+  Object.defineProperty(input, '__proto__', {
+    value: 'proto-secret',
+    enumerable: true,
+    configurable: true,
+    writable: true
+  });
+  input.constructor = 'constructor-secret';
+  input.prototype = 'prototype-secret';
+
+  const encrypted = processConfig(input, { mode: 'encrypt', key: KEY });
+  assert.equal(Object.getPrototypeOf(encrypted), null);
+  assert.equal(Object.hasOwn(encrypted, '__proto__'), true);
+  assert.match(encrypted.__proto__, /^yl\|2\|/);
+  assert.match(encrypted.constructor, /^yl\|2\|/);
+  assert.match(encrypted.prototype, /^yl\|2\|/);
+
+  const decrypted = processConfig(encrypted, { mode: 'decrypt', key: KEY });
+  assert.equal(Object.getPrototypeOf(decrypted), null);
+  assert.deepEqual(decrypted, input);
+});
+
+test('processConfig round-trips Unicode keys, Unicode values, and empty strings', () => {
+  const input = {
+    'ключ.🔐': '',
+    '日本語[設定]': 'пароль-密碼-🔑',
+    'line\nbreak': 'значение'
+  };
+
+  const encrypted = processConfig(input, { mode: 'encrypt', key: KEY });
+  assert.match(encrypted['ключ.🔐'], /^yl\|2\|/);
+  assert.match(encrypted['日本語[設定]'], /^yl\|2\|/);
+  assert.match(encrypted['line\nbreak'], /^yl\|2\|/);
+  assert.deepEqual(processConfig(encrypted, { mode: 'decrypt', key: KEY }), input);
+});
+
+test('processConfig round-trips a large value below the v2 limit', () => {
+  const largeValue = 'x'.repeat(1024 * 1024);
+  const encrypted = processConfig(
+    { largeValue },
+    { mode: 'encrypt', key: KEY }
+  );
+
+  assert.match(encrypted.largeValue, /^yl\|2\|/);
+  assert.deepEqual(
+    processConfig(encrypted, { mode: 'decrypt', key: KEY }),
+    { largeValue }
+  );
+});
+
 test('processConfig validates mode and input types', () => {
   assert.throws(
     () => processConfig(null, { mode: 'encrypt', key: KEY }),

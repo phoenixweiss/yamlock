@@ -31,6 +31,21 @@ function isConfigContainer(value) {
   return prototype === Object.prototype || prototype === null;
 }
 
+function createResultContainer(node) {
+  return Array.isArray(node)
+    ? new Array(node.length)
+    : Object.create(Object.getPrototypeOf(node));
+}
+
+function setResultValue(result, key, value) {
+  Object.defineProperty(result, key, {
+    value,
+    enumerable: true,
+    configurable: true,
+    writable: true
+  });
+}
+
 function validatePathSegments(segments, optionName) {
   if (!Array.isArray(segments)) {
     throw createConfigError(
@@ -204,7 +219,7 @@ export function processConfig(node, options) {
 
 function traverseConfig(node, { mode, key, algorithm, algorithmOptions, formatVersion, parentPath, normalizedPaths, nonStringPolicy, existingPayloadPolicy, pathSerializer, ancestors, seenPaths }) {
   const isArrayNode = Array.isArray(node);
-  const result = isArrayNode ? [] : {};
+  const result = createResultContainer(node);
   const selectedCryptoOptions = algorithmOptions ?? algorithm;
   const cryptoOptions = formatVersion === undefined
     ? selectedCryptoOptions
@@ -228,7 +243,7 @@ function traverseConfig(node, { mode, key, algorithm, algorithmOptions, formatVe
           );
         }
 
-        result[targetKey] = traverseConfig(originalValue, {
+        setResultValue(result, targetKey, traverseConfig(originalValue, {
           mode,
           key,
           algorithm: cryptoOptions,
@@ -240,7 +255,7 @@ function traverseConfig(node, { mode, key, algorithm, algorithmOptions, formatVe
           pathSerializer,
           ancestors,
           seenPaths
-        });
+        }));
         continue;
       }
 
@@ -254,14 +269,14 @@ function traverseConfig(node, { mode, key, algorithm, algorithmOptions, formatVe
 
       const shouldProcess = !normalizedPaths || normalizedPaths.has(currentPath);
       if (!shouldProcess) {
-        result[targetKey] = originalValue;
+        setResultValue(result, targetKey, originalValue);
         continue;
       }
 
       let value = originalValue;
       if (typeof value !== 'string') {
         if (nonStringPolicy === 'ignore') {
-          result[targetKey] = value;
+          setResultValue(result, targetKey, value);
           continue;
         }
 
@@ -278,7 +293,11 @@ function traverseConfig(node, { mode, key, algorithm, algorithmOptions, formatVe
       if (mode === MODES.ENCRYPT) {
         if (isYamlockPayload(value)) {
           if (existingPayloadPolicy === 'encrypt') {
-            result[targetKey] = encryptValue(value, key, currentPath, cryptoOptions);
+            setResultValue(
+              result,
+              targetKey,
+              encryptValue(value, key, currentPath, cryptoOptions)
+            );
             continue;
           }
 
@@ -298,19 +317,19 @@ function traverseConfig(node, { mode, key, algorithm, algorithmOptions, formatVe
             );
           }
 
-          result[targetKey] = value;
+          setResultValue(result, targetKey, value);
           continue;
         }
 
-        result[targetKey] = encryptValue(value, key, currentPath, cryptoOptions);
+        setResultValue(result, targetKey, encryptValue(value, key, currentPath, cryptoOptions));
       } else {
-        result[targetKey] = decryptConfigValue(
+        setResultValue(result, targetKey, decryptConfigValue(
           value,
           key,
           currentPath,
           legacyPath,
           cryptoOptions
-        );
+        ));
       }
     }
 

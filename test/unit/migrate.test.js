@@ -12,7 +12,9 @@ test('migrateConfig converts selected legacy payloads to v2 without mutating inp
     db: {
       user: 'app',
       password: encryptValue('secret', KEY, 'db.password', { formatVersion: 1 })
-    }
+    },
+    emptyObject: {},
+    emptyArray: []
   };
   const snapshot = structuredClone(input);
 
@@ -31,6 +33,21 @@ test('migrateConfig converts selected legacy payloads to v2 without mutating inp
   assert.match(result.data.db.password, /^yl\|2\|/);
   assert.equal(decryptValue(result.data.db.password, KEY, 'db.password'), 'secret');
   assert.equal(result.data.db.user, 'app');
+  assert.deepEqual(result.data.emptyObject, {});
+  assert.deepEqual(result.data.emptyArray, []);
+});
+
+test('migrateConfig preserves trailing holes in sparse arrays', () => {
+  const input = new Array(4);
+  input[1] = encryptValue('sparse-secret', KEY, '[1]', { formatVersion: 1 });
+
+  const result = migrateConfig(input, { key: KEY });
+
+  assert.equal(result.data.length, 4);
+  assert.equal(0 in result.data, false);
+  assert.equal(2 in result.data, false);
+  assert.equal(3 in result.data, false);
+  assert.equal(decryptValue(result.data[1], KEY, '[1]'), 'sparse-secret');
 });
 
 test('migrateConfig upgrades payloads with legacy ambiguous field paths', () => {

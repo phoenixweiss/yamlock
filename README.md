@@ -247,6 +247,11 @@ non-empty, unique string for every leaf and the same serializer must be used for
 encryption and decryption. Policies apply only to values selected by `paths`;
 unselected leaf values are preserved.
 
+Direct `processConfig` calls preserve empty containers, sparse-array length and
+holes, null-prototype objects, and own keys such as `__proto__`. JSON and YAML
+files retain the values their parsers can represent, but those formats do not
+encode JavaScript sparse-array holes as a distinct portable value.
+
 ### Authenticated payload v2 (default)
 
 `encryptValue`, `processConfig`, and `yamlock encrypt` write authenticated v2

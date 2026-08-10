@@ -42,7 +42,7 @@ function decryptMigrationValue(value, key, currentPath, legacyPath) {
 
 function traverse(node, context) {
   const isArrayNode = Array.isArray(node);
-  const result = isArrayNode ? [] : {};
+  const result = isArrayNode ? new Array(node.length) : {};
 
   Object.entries(node).forEach(([rawKey, value]) => {
     const segment = isArrayNode ? Number(rawKey) : rawKey;

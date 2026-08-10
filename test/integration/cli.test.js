@@ -119,6 +119,32 @@ test('CLI encrypts and decrypts JSON configs', () => {
   assert.notEqual(decryptedStat.ino, encryptedStat.ino);
 });
 
+test('CLI round-trips empty containers, special keys, Unicode, and large values', () => {
+  const input = JSON.parse('{"__proto__":"proto-value"}');
+  input.emptyObject = {};
+  input.emptyArray = [];
+  input['ключ.🔐'] = '';
+  input['日本語[設定]'] = 'пароль-密碼-🔑';
+  input.largeValue = '大'.repeat(128 * 1024);
+  const filePath = createTempFile(input);
+
+  const encryptResult = runCli(['encrypt', filePath, '--key', KEY]);
+  assert.equal(encryptResult.status, 0, encryptResult.stderr);
+
+  const encrypted = JSON.parse(readFileSync(filePath, 'utf8'));
+  assert.equal(Object.hasOwn(encrypted, '__proto__'), true);
+  assert.match(encrypted.__proto__, /^yl\|2\|/);
+  assert.deepEqual(encrypted.emptyObject, {});
+  assert.deepEqual(encrypted.emptyArray, []);
+  assert.match(encrypted['ключ.🔐'], /^yl\|2\|/);
+  assert.match(encrypted['日本語[設定]'], /^yl\|2\|/);
+  assert.match(encrypted.largeValue, /^yl\|2\|/);
+
+  const decryptResult = runCli(['decrypt', filePath, '--key', KEY]);
+  assert.equal(decryptResult.status, 0, decryptResult.stderr);
+  assert.deepEqual(JSON.parse(readFileSync(filePath, 'utf8')), input);
+});
+
 test('CLI repeated encrypt preserves authenticated payloads without rewriting the file', () => {
   const filePath = createTempFile({ value: 'secret' });
   const first = runCli(['encrypt', filePath, '--key', KEY]);
