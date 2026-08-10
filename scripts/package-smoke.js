@@ -111,6 +111,9 @@ function main() {
       ['bin', 'yamlock'],
       ['docs', 'api.md'],
       ['docs', 'errors.md'],
+      ['examples', 'basic.js'],
+      ['examples', 'docs', 'ci-cd.md'],
+      ['examples', 'docs', 'key-rotation.md'],
       ['README.md'],
       ['LICENSE']
     ]) {
@@ -166,6 +169,16 @@ function main() {
       const direct = encryptValue('fake-direct-secret', key, 'direct');
       assert.equal(decryptValue(direct, key, 'direct'), 'fake-direct-secret');
 
+      const frozenLegacy = 'yl|aes-256-cbc|c2VydmljZXMuZGIucGFzc3dvcmQ=|E886OCFEAQv+T29mFkDTJg==|ufswWXlx35Y230s/dIXCiUZxi8RlgcrtjqOzLq/Ew9Y=';
+      assert.equal(
+        decryptValue(
+          frozenLegacy,
+          'unit-test-secret-key',
+          'services.db.password'
+        ),
+        'legacy-fixture-value'
+      );
+
       const input = { 'db.primary': { token: '' }, untouched: {} };
       const encrypted = processConfig(input, {
         mode: 'encrypt',
@@ -217,6 +230,34 @@ function main() {
       YAMLOCK_TEST_SOURCE: '0'
     };
     const escapedPath = String.raw`a\.b`;
+
+    const helpResult = run(process.execPath, [installedCli, '--help'], {
+      cwd: projectDirectory,
+      env: cliEnvironment
+    });
+    assert.match(helpResult.stdout, /Usage:\s+yamlock <command>/);
+
+    const versionResult = run(process.execPath, [installedCli, 'version'], {
+      cwd: projectDirectory,
+      env: cliEnvironment
+    });
+    assert.equal(versionResult.stdout.trim(), `yamlock ${sourcePackage.version}`);
+
+    const algorithmsResult = run(process.execPath, [installedCli, 'algorithms'], {
+      cwd: projectDirectory,
+      env: cliEnvironment
+    });
+    assert.match(algorithmsResult.stdout, /Default v2 profile: aes-256-gcm with scrypt/);
+
+    const exampleResult = run(process.execPath, [join(installedRoot, 'examples', 'basic.js')], {
+      cwd: projectDirectory,
+      env: {
+        ...cliEnvironment,
+        YAMLOCK_KEY: 'example-package-smoke-key'
+      }
+    });
+    assert.match(exampleResult.stdout, /Encrypted payload: yl\|2\|/);
+    assert.match(exampleResult.stdout, /Decrypted value: swordfish/);
 
     run(process.execPath, [
       installedCli,

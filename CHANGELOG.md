@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to this project will be documented in this file. Each step in the execution plan increments the version and should be tagged accordingly.
+All notable changes to this project will be documented in this file. Release versions are finalized in dedicated commits and use matching numeric Git tags.
 
 ## [Unreleased]
 ### Added
@@ -18,6 +18,8 @@ All notable changes to this project will be documented in this file. Each step i
 - Stable public Node.js error classes and `ERR_*` codes for validation, payload, authentication, legacy decryption, and config-processing failures.
 - Bundled TypeScript declarations and a documented `1.x` stability contract for the public Node.js API.
 - Built-in coverage thresholds plus automated Markdown-link and release-metadata checks.
+- Packaged runnable API and CI/CD examples with regression coverage against the installed distribution.
+- Conventional `help`, `-h`, and `--help` CLI entry points with installed-package smoke coverage.
 
 ### Changed
 - Updated `js-yaml` to 4.3.1 to address merge-key, alias, and ordered-map denial-of-service advisories; refreshed ESLint 9 tooling within the existing major version.

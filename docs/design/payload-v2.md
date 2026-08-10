@@ -1,11 +1,11 @@
 # yamlock payload v2 design
 
-Status: Phases A through C are implemented for the next release. V2 is the
-writer default; legacy writing remains an explicit compatibility mode.
+Status: Phases A through C are implemented. V2 is the writer default; legacy
+writing remains an explicit compatibility mode.
 
-This document defines the intended security and compatibility contract for the
-next yamlock payload format. It is deliberately separate from the current
-README because released yamlock versions still write the legacy format.
+This document defines the security and compatibility contract for the current
+yamlock payload format. It complements the usage-oriented README with the
+canonical envelope, threat model, limits, and migration design.
 
 ## Goals
 
@@ -73,7 +73,8 @@ The implementation remains sequential by default because unbounded parallel
 scrypt calls could exhaust memory. A local Node.js 22.21.1 reference run on
 Darwin arm64 on 2026-08-09 averaged 41.5 ms per encryption and 41.8 ms per
 decryption across 20 values; encrypting a representative 20-value config took
-845 ms. Hosted Ubuntu CI confirmation remains a release gate before tagging.
+845 ms. The full hosted Ubuntu Node.js 22 suite exercises the fixed profile;
+these local timings are a reference, not a portable performance guarantee.
 
 ### Secret input encoding
 
@@ -299,8 +300,9 @@ the key is wrong.
 - [x] Continue legacy reads so repositories can migrate incrementally.
 - [x] Update README, changelog, examples, test fixtures, and key-rotation
   guidance for the default change.
-- [ ] Confirm the change in hosted Ubuntu CI, then perform the separately
-  approved version, changelog finalization, tag, and release steps.
+- [x] Confirm the default writer and migration suite in hosted Ubuntu CI.
+- [ ] Perform the separately approved version, changelog finalization, tag, and
+  release steps.
 
 ### Phase D: legacy write retirement
 
@@ -326,13 +328,13 @@ the key is wrong.
 - npm tarball smoke test proving the installed package reads v1 and v2 without
   falling back to repository `src` files.
 
-## Open implementation gates
+## Release status and limitations
 
-- Confirm the recorded Node.js 22 benchmark and full test suite on hosted
-  Ubuntu CI before tagging the default-writer release.
-- Define stable library error classes/codes before declaring the Node.js API stable.
-- Review this design and implementation as application cryptography; passing
-  tests alone is not a third-party security audit.
+- The fixed profile, migration paths, legacy fixtures, and full test suite pass
+  in hosted Ubuntu CI on Node.js 22.
+- Stable public library error classes and codes are documented and tested.
+- This design and implementation have not received a third-party security
+  audit; passing tests alone is not one.
 
 ## References
 

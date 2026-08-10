@@ -1,4 +1,4 @@
-import { encryptValue, decryptValue, processConfig } from '../src/index.js';
+import { encryptValue, decryptValue, processConfig } from 'yamlock';
 
 const KEY = process.env.YAMLOCK_KEY || 'dev-secret-key';
 

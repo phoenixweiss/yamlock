@@ -630,14 +630,16 @@ test('CLI version command prints package version', () => {
   assert.match(result.stdout.trim(), new RegExp(`^yamlock ${packageJson.version}`));
 });
 
-test('CLI help warns about YAML rewrite normalization', () => {
-  const result = runCli([]);
-  assert.equal(result.status, 1);
-  assert.match(result.stdout, /YAML rewrite note:/);
-  assert.match(result.stdout, /not\s+preserved byte-for-byte/);
-  assert.match(result.stdout, /--dry-run or --output/);
-  assert.match(result.stdout, /Path syntax:/);
-  assert.match(result.stdout, /db\\\.primary\.token/);
+test('CLI help aliases succeed and warn about YAML rewrite normalization', () => {
+  for (const args of [[], ['help'], ['-h'], ['--help']]) {
+    const result = runCli(args);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /YAML rewrite note:/);
+    assert.match(result.stdout, /not\s+preserved byte-for-byte/);
+    assert.match(result.stdout, /--dry-run or --output/);
+    assert.match(result.stdout, /Path syntax:/);
+    assert.match(result.stdout, /db\\\.primary\.token/);
+  }
 });
 
 test('CLI algorithms command separates tested vs available lists', () => {

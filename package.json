@@ -22,6 +22,7 @@
     "dist",
     "bin",
     "docs",
+    "examples",
     "README.md",
     "LICENSE"
   ],

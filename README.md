@@ -5,7 +5,7 @@
 ```
 
 [![npm version](https://img.shields.io/npm/v/yamlock)](https://www.npmjs.com/package/yamlock)
-[![Tests](https://img.shields.io/badge/tests-node--test-green)](https://github.com/phoenixweiss/yamlock/actions)
+[![CI](https://github.com/phoenixweiss/yamlock/actions/workflows/ci.yml/badge.svg)](https://github.com/phoenixweiss/yamlock/actions/workflows/ci.yml)
 
 # yamlock
 
@@ -13,8 +13,10 @@ Value-level encryption for YAML and JSON configuration files. The name **yamlock
 
 ## Requirements
 
-- Node.js 22.x via `asdf`
-- Yarn Classic (1.x)
+- Node.js 22 or newer
+
+The package works with npm or another Node.js package manager. This repository
+uses Yarn Classic 1.22.22 for development and release checks.
 
 ## Installation
 
@@ -56,6 +58,7 @@ yamlock decrypt settings.json --key "super-secret"
 yamlock encrypt config.json --key "$YAMLOCK_KEY" --paths "db.password,api.token" --output config.secure.json
 
 # Inspect CLI metadata
+yamlock --help
 yamlock version
 yamlock algorithms
 
@@ -337,7 +340,7 @@ default v2 writer for new data.
 
 ## Release information
 
-- The badges at the top show the latest npm version and the status of the Node test suite.
+- The badges at the top show the latest npm version and the status of the full CI matrix.
 - See [CHANGELOG.md](CHANGELOG.md) for detailed release notes; install a specific tag via `npm install yamlock@<version>`.
 
 ### Encrypted value formats

@@ -61,6 +61,7 @@ const COMMAND_OPTIONS = new Map([
   ['decrypt', new Set(['key', 'output', 'paths', 'dryRun'])],
   ['migrate', new Set(['key', 'output', 'paths', 'dryRun', 'allowMixed', 'noBackup'])],
   ['keygen', new Set(['length', 'format'])],
+  ['help', new Set()],
   ['version', new Set()],
   ['algorithms', new Set()]
 ]);
@@ -76,6 +77,7 @@ Commands:
   encrypt <file>       Encrypt string values in the given YAML/JSON file.
   decrypt <file>       Decrypt string values in the given YAML/JSON file.
   migrate <file>       Migrate selected legacy payloads to authenticated v2.
+  help                 Show this help text.
   version              Print the yamlock CLI version.
   algorithms           Print the list of supported cipher algorithms.
   keygen               Generate a random YAMLOCK_KEY.
@@ -93,6 +95,7 @@ Options:
   --force-encrypt          (encrypt) Encrypt selected yl|... strings as plaintext.
   --length <bytes>         (keygen) Random bytes to generate, 1-${KEYGEN_MAX_LENGTH} (default: 32).
   --format <hex|base64>    (keygen) Output format (default: base64).
+  -h, --help               Show this help text.
 
 YAML rewrite note:
   Comments, anchors/aliases, explicit tags, quoting, and formatting are not
@@ -193,8 +196,12 @@ function parsePaths(value) {
 
 function parseArgs(argv) {
   const args = argv.slice(2);
+  const commandAliases = new Map([
+    ['-h', 'help'],
+    ['--help', 'help']
+  ]);
   const result = {
-    command: args[0],
+    command: commandAliases.get(args[0]) ?? args[0],
     file: undefined,
     options: {
       dryRun: false,
@@ -513,9 +520,9 @@ export async function runCli(argv = process.argv) {
 
   const { command, file, options } = parsed;
 
-  if (!command) {
+  if (!command || command === 'help') {
     print(getHelpText().trim());
-    return exit(1);
+    return exit(0);
   }
 
   if (command === 'version') {
