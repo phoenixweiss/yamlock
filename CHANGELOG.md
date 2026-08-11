@@ -3,6 +3,9 @@
 All notable changes to this project will be documented in this file. Release versions are finalized in dedicated commits and use matching numeric Git tags.
 
 ## [Unreleased]
+
+## [1.0.0] - 2026-08-11
+
 ### Added
 - Authenticated payload v2 for the Node.js API, using AES-256-GCM, scrypt, strict parsing, and authenticated field-path metadata.
 - Frozen legacy payload fixtures and v2 regression tests for deterministic vectors, tampering, malformed input, mixed-format configs, and resource limits.
