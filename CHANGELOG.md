@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file. Release ver
 
 ## [Unreleased]
 
+### Added
+- Tag-gated GitHub Release automation that reuses the full CI matrix, validates the tag against `main`, derives notes from the matching changelog section, verifies a draft, and publishes the release as latest.
+
 ## [1.0.0] - 2026-08-11
 
 ### Added

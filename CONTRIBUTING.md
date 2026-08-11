@@ -49,7 +49,7 @@ loads `dist` while `src` is absent.
 - `main` represents the latest released state and is updated from `dev` by the
   Bumpster release flow.
 - Both branches run the complete CI matrix. Release tags run the same matrix
-  plus the installed-package preflight.
+  plus the installed-package preflight through the Release workflow.
 
 ## Release process
 
@@ -70,8 +70,13 @@ releases starting with `v1.0.0` use `vX.Y.Z` tags.
 5. Bumpster synchronizes `VERSION` and `package.json`, creates
    `bump version to X.Y.Z`, updates `main`, creates `vX.Y.Z`, atomically pushes
    `dev`, `main`, and the tag, then returns to `dev`.
-6. Wait for the exact tag's full CI and release-package preflight to pass.
-7. After separate publication approval, publish from the verified release
+6. The tag-only Release workflow repeats the full CI and installed-package
+   preflight, verifies that the tagged commit matches `main`, derives notes from
+   the matching changelog section, validates a draft, and publishes the GitHub
+   Release as latest. If publication fails after draft creation, inspect the
+   retained draft before retrying.
+7. Wait for the exact tag's Release workflow and public GitHub Release to pass.
+8. After separate publication approval, publish from the verified release
    commit and confirm the npm dist-tag, registry installation, CLI, and API.
 
 Thank you for helping make yamlock better!

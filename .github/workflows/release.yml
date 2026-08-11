@@ -1,0 +1,233 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    name: Required checks
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  publish:
+    name: Publish GitHub Release
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825d76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: yarn
+          cache-dependency-path: yarn.lock
+
+      - name: Use Yarn Classic
+        run: npm install --global yarn@1.22.22
+
+      - name: Verify Yarn version
+        run: test "$(yarn --version)" = "1.22.22"
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Validate release tag
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag_name="$GITHUB_REF_NAME"
+          version="${tag_name#v}"
+
+          yarn check:release --tag "$tag_name"
+          git fetch --no-tags origin main:refs/remotes/origin/main
+
+          tag_commit="$(git rev-list -n 1 "$tag_name")"
+          main_commit="$(git rev-parse refs/remotes/origin/main)"
+
+          if [[ "$tag_commit" != "$GITHUB_SHA" ]]; then
+            printf 'Tag %s resolves to %s, expected workflow SHA %s.\n' \
+              "$tag_name" "$tag_commit" "$GITHUB_SHA" >&2
+            exit 1
+          fi
+
+          if [[ "$tag_commit" != "$main_commit" ]]; then
+            printf 'Tag %s does not match origin/main (%s).\n' \
+              "$tag_name" "$main_commit" >&2
+            exit 1
+          fi
+
+          if gh release view "$tag_name" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            printf 'GitHub Release %s already exists.\n' "$tag_name" >&2
+            exit 1
+          fi
+
+          {
+            printf 'tag=%s\n' "$tag_name"
+            printf 'version=%s\n' "$version"
+            printf 'commit=%s\n' "$tag_commit"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Prepare release notes
+        shell: bash
+        run: |
+          node scripts/release-notes.js \
+            "${{ steps.release.outputs.version }}" \
+            > "$RUNNER_TEMP/changelog-notes.md"
+
+          {
+            printf '\n### Install\n\n'
+            printf '```bash\n'
+            printf 'npm install yamlock@%s\n' \
+              "${{ steps.release.outputs.version }}"
+            printf '```\n\n'
+            printf '%s\n' \
+              "- [npm package](https://www.npmjs.com/package/yamlock/v/${{ steps.release.outputs.version }})"
+            printf '%s\n' \
+              "- [Changelog](https://github.com/$GITHUB_REPOSITORY/blob/${{ steps.release.outputs.tag }}/CHANGELOG.md)"
+          } >> "$RUNNER_TEMP/changelog-notes.md"
+
+      - name: Create draft release
+        id: draft
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_COMMIT: ${{ steps.release.outputs.commit }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          release_body="$(<"$RUNNER_TEMP/changelog-notes.md")"
+
+          jq -n \
+            --arg body "$release_body" \
+            --arg commit "$RELEASE_COMMIT" \
+            --arg tag "$RELEASE_TAG" \
+            --arg version "$RELEASE_VERSION" \
+            '{
+              tag_name: $tag,
+              target_commitish: $commit,
+              name: ("yamlock " + $version),
+              body: $body,
+              draft: true,
+              prerelease: false,
+              generate_release_notes: true,
+              make_latest: "false"
+            }' > "$RUNNER_TEMP/release-payload.json"
+
+          release_id="$(
+            gh api \
+              --method POST \
+              "repos/$GITHUB_REPOSITORY/releases" \
+              --input "$RUNNER_TEMP/release-payload.json" \
+              --jq '.id'
+          )"
+
+          printf 'id=%s\n' "$release_id" >> "$GITHUB_OUTPUT"
+
+      - name: Verify draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_COMMIT: ${{ steps.release.outputs.commit }}
+          RELEASE_ID: ${{ steps.draft.outputs.id }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          gh api \
+            "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
+            > "$RUNNER_TEMP/draft-release.json"
+
+          jq -e \
+            --arg commit "$RELEASE_COMMIT" \
+            --arg tag "$RELEASE_TAG" \
+            --arg version "$RELEASE_VERSION" \
+            --rawfile notes "$RUNNER_TEMP/changelog-notes.md" \
+            '
+              .draft == true and
+              .prerelease == false and
+              .tag_name == $tag and
+              .target_commitish == $commit and
+              .name == ("yamlock " + $version) and
+              (.body | startswith($notes | rtrimstr("\n"))) and
+              (.assets | length) == 0
+            ' \
+            "$RUNNER_TEMP/draft-release.json" >/dev/null
+
+      - name: Publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ steps.draft.outputs.id }}
+        run: |
+          jq -n \
+            '{
+              draft: false,
+              make_latest: "true"
+            }' > "$RUNNER_TEMP/publish-payload.json"
+
+          gh api \
+            --method PATCH \
+            "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
+            --input "$RUNNER_TEMP/publish-payload.json" \
+            > "$RUNNER_TEMP/published-release.json"
+
+          jq -e \
+            '
+              .draft == false and
+              .prerelease == false and
+              (.assets | length) == 0
+            ' \
+            "$RUNNER_TEMP/published-release.json" >/dev/null
+
+          latest_id=''
+          for _ in 1 2 3 4 5; do
+            latest_id="$(
+              gh api \
+                "repos/$GITHUB_REPOSITORY/releases/latest" \
+                --jq '.id'
+            )"
+            if [[ "$latest_id" == "$RELEASE_ID" ]]; then
+              break
+            fi
+            sleep 2
+          done
+          test "$latest_id" = "$RELEASE_ID"
+          jq -r '.html_url' "$RUNNER_TEMP/published-release.json"
+
+      - name: Report release state after failure
+        if: ${{ failure() && steps.draft.outputs.id != '' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ steps.draft.outputs.id }}
+        run: |
+          gh api \
+            "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
+            > "$RUNNER_TEMP/failed-release.json"
+
+          release_url="$(jq -r '.html_url' "$RUNNER_TEMP/failed-release.json")"
+          if jq -e '.draft == true' "$RUNNER_TEMP/failed-release.json" >/dev/null; then
+            printf 'Release publication failed. Draft retained: %s\n' "$release_url"
+          else
+            printf 'Release was published before validation failed. Inspect: %s\n' \
+              "$release_url"
+          fi
