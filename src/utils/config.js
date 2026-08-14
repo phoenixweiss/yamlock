@@ -4,6 +4,11 @@ import { detectPayloadVersion } from '../crypto/payload-v2.js';
 import { isYamlockPayload } from '../crypto/utils.js';
 import { YamlockConfigError } from '../errors.js';
 import { serializeLegacyPath, serializePath } from './path.js';
+import {
+  compilePathPatterns,
+  matchesAnyPathPattern,
+  PathPatternSyntaxError
+} from './path-pattern.js';
 
 const MODES = {
   ENCRYPT: 'encrypt',
@@ -13,8 +18,11 @@ const MODES = {
 const NON_STRING_POLICIES = new Set(['ignore', 'stringify', 'error']);
 const EXISTING_PAYLOAD_POLICIES = new Set(['preserve', 'error', 'encrypt']);
 
-function createConfigError(code, message) {
-  return new YamlockConfigError(message, { code });
+function createConfigError(code, message, cause) {
+  return new YamlockConfigError(message, {
+    code,
+    ...(cause === undefined ? {} : { cause })
+  });
 }
 
 function isConfigContainer(value) {
@@ -81,6 +89,22 @@ function normalizePaths(paths) {
     return path.trim();
   });
   return new Set(normalized);
+}
+
+function normalizePathPatterns(pathPatterns) {
+  try {
+    return compilePathPatterns(pathPatterns);
+  } catch (error) {
+    if (!(error instanceof PathPatternSyntaxError)) {
+      throw error;
+    }
+
+    throw createConfigError(
+      'ERR_INVALID_PATH_PATTERNS',
+      error.message,
+      error
+    );
+  }
 }
 
 function resolveCurrentPaths(segments, pathSerializer) {
@@ -150,6 +174,7 @@ function stringifyConfigLeaf(value, currentPath) {
  * @param {"preserve"|"error"|"encrypt"} [options.existingPayloadPolicy]
  * @param {(segments: Array<string|number>) => string} [options.pathSerializer]
  * @param {string[]} [options.paths]
+ * @param {string[]} [options.pathPatterns]
  * @param {Array<string|number>} [options.parentPath]
  * @returns {Object|Array}
  */
@@ -195,6 +220,13 @@ export function processConfig(node, options) {
   const parentPath = options.parentPath ?? [];
   validatePathSegments(parentPath, 'parentPath');
   const normalizedPaths = normalizePaths(options.paths);
+  const compiledPathPatterns = normalizePathPatterns(options.pathPatterns);
+  if (compiledPathPatterns.length > 0 && options.pathSerializer !== undefined) {
+    throw createConfigError(
+      'ERR_INVALID_PATH_PATTERNS',
+      'pathPatterns cannot be combined with pathSerializer.'
+    );
+  }
   const existingPayloadPolicy = options.existingPayloadPolicy ?? 'preserve';
   if (!EXISTING_PAYLOAD_POLICIES.has(existingPayloadPolicy)) {
     throw createConfigError(
@@ -208,6 +240,7 @@ export function processConfig(node, options) {
     mode,
     parentPath,
     normalizedPaths,
+    compiledPathPatterns,
     nonStringPolicy,
     existingPayloadPolicy,
     pathSerializer: options.pathSerializer,
@@ -216,7 +249,7 @@ export function processConfig(node, options) {
   });
 }
 
-function traverseConfig(node, { mode, key, algorithm, algorithmOptions, formatVersion, parentPath, normalizedPaths, nonStringPolicy, existingPayloadPolicy, pathSerializer, ancestors, seenPaths }) {
+function traverseConfig(node, { mode, key, algorithm, algorithmOptions, formatVersion, parentPath, normalizedPaths, compiledPathPatterns, nonStringPolicy, existingPayloadPolicy, pathSerializer, ancestors, seenPaths }) {
   const isArrayNode = Array.isArray(node);
   const result = createResultContainer(node);
   const selectedCryptoOptions = algorithmOptions ?? algorithm;
@@ -249,6 +282,7 @@ function traverseConfig(node, { mode, key, algorithm, algorithmOptions, formatVe
           algorithmOptions: cryptoOptions,
           parentPath: pathSegments,
           normalizedPaths,
+          compiledPathPatterns,
           nonStringPolicy,
           existingPayloadPolicy,
           pathSerializer,
@@ -266,7 +300,10 @@ function traverseConfig(node, { mode, key, algorithm, algorithmOptions, formatVe
       }
       seenPaths.add(currentPath);
 
-      const shouldProcess = !normalizedPaths || normalizedPaths.has(currentPath);
+      const hasSelectors = normalizedPaths !== null || compiledPathPatterns.length > 0;
+      const shouldProcess = !hasSelectors ||
+        normalizedPaths?.has(currentPath) ||
+        matchesAnyPathPattern(compiledPathPatterns, pathSegments);
       if (!shouldProcess) {
         setResultValue(result, targetKey, originalValue);
         continue;

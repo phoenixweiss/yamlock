@@ -1,3 +1,5 @@
+import { YAMLOCK_ERROR_CODES } from '../errors.js';
+
 const COMPILED_PATTERN = Symbol('yamlock.compiledPathPattern');
 const ALLOWED_ESCAPES = new Set(['\\', '.', '[', ']', ',', '*']);
 const EMPTY_COMPILED_PATTERNS = Object.freeze([]);
@@ -14,7 +16,7 @@ export class PathPatternSyntaxError extends Error {
   constructor(message, offset = 0) {
     super(`Invalid path pattern at offset ${offset}: ${message}`);
     this.name = 'PathPatternSyntaxError';
-    this.code = 'ERR_INVALID_PATH_PATTERNS';
+    this.code = YAMLOCK_ERROR_CODES.INVALID_PATH_PATTERNS;
     this.offset = offset;
   }
 }

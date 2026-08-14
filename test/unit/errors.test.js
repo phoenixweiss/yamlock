@@ -123,4 +123,12 @@ test('processConfig validation failures expose YamlockConfigError', () => {
     YamlockConfigError,
     YAMLOCK_ERROR_CODES.INVALID_MODE
   );
+  assertYamlockError(
+    () => processConfig(
+      { value: 'secret' },
+      { mode: 'encrypt', key: KEY, pathPatterns: ['partial-*'] }
+    ),
+    YamlockConfigError,
+    YAMLOCK_ERROR_CODES.INVALID_PATH_PATTERNS
+  );
 });

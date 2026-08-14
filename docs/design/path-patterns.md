@@ -1,6 +1,8 @@
 # Path pattern design
 
-Status: proposed for a future `1.x` minor release; not implemented.
+Status: implementation in progress for a future `1.x` minor release. The
+tokenizer/matcher and `processConfig` option are implemented; CLI support and
+public usage documentation remain pending.
 
 ## Goals
 

@@ -260,6 +260,196 @@ test('processConfig only processes specified paths', () => {
   assert.deepEqual(decrypted, input);
 });
 
+test('processConfig selects object and array leaves with path patterns', () => {
+  const input = {
+    services: {
+      api: { token: 'api-secret', url: 'https://api.example.com' },
+      web: { token: 'web-secret', enabled: 'yes' }
+    },
+    users: [
+      { token: 'user-secret', name: 'Ada' },
+      { token: 'admin-secret', name: 'Grace' }
+    ],
+    literal: { '*': 'literal-star', other: 'plain' }
+  };
+  const pathPatterns = [
+    'services.*.token',
+    'users[*].token',
+    String.raw`literal.\*`
+  ];
+
+  const encrypted = processConfig(input, {
+    mode: 'encrypt',
+    key: KEY,
+    pathPatterns
+  });
+
+  assert.match(encrypted.services.api.token, /^yl\|2\|/);
+  assert.match(encrypted.services.web.token, /^yl\|2\|/);
+  assert.match(encrypted.users[0].token, /^yl\|2\|/);
+  assert.match(encrypted.users[1].token, /^yl\|2\|/);
+  assert.match(encrypted.literal['*'], /^yl\|2\|/);
+  assert.equal(encrypted.services.api.url, input.services.api.url);
+  assert.equal(encrypted.services.web.enabled, input.services.web.enabled);
+  assert.equal(encrypted.users[0].name, input.users[0].name);
+  assert.equal(encrypted.literal.other, input.literal.other);
+
+  assert.deepEqual(
+    processConfig(encrypted, { mode: 'decrypt', key: KEY, pathPatterns }),
+    input
+  );
+});
+
+test('processConfig combines exact paths and patterns as a union', () => {
+  const input = {
+    db: { password: 'db-secret', host: 'localhost' },
+    api: { token: 'api-secret', url: 'https://example.com' }
+  };
+  const selectors = {
+    paths: ['api.token', 'db.password'],
+    pathPatterns: ['db.**', 'db.password']
+  };
+
+  const encrypted = processConfig(input, {
+    mode: 'encrypt',
+    key: KEY,
+    ...selectors
+  });
+
+  assert.match(encrypted.db.password, /^yl\|2\|/);
+  assert.match(encrypted.db.host, /^yl\|2\|/);
+  assert.match(encrypted.api.token, /^yl\|2\|/);
+  assert.equal(encrypted.api.url, input.api.url);
+  assert.deepEqual(
+    processConfig(encrypted, { mode: 'decrypt', key: KEY, ...selectors }),
+    input
+  );
+});
+
+test('path patterns preserve special objects and sparse arrays', () => {
+  const special = Object.create(null);
+  Object.defineProperty(special, '__proto__', {
+    value: 'prototype-secret',
+    enumerable: true,
+    configurable: true,
+    writable: true
+  });
+  special.unselected = 42;
+
+  const sparse = new Array(4);
+  sparse[1] = { token: 'array-secret' };
+  sparse[3] = 7;
+  const input = { special, sparse, untouched: false, empty: [] };
+  const pathPatterns = ['special.__proto__', 'sparse[*].token'];
+
+  const encrypted = processConfig(input, {
+    mode: 'encrypt',
+    key: KEY,
+    pathPatterns,
+    nonStringPolicy: 'error'
+  });
+
+  assert.equal(Object.getPrototypeOf(encrypted.special), null);
+  assert.match(encrypted.special.__proto__, /^yl\|2\|/);
+  assert.equal(encrypted.special.unselected, 42);
+  assert.equal(encrypted.sparse.length, 4);
+  assert.equal(0 in encrypted.sparse, false);
+  assert.equal(2 in encrypted.sparse, false);
+  assert.match(encrypted.sparse[1].token, /^yl\|2\|/);
+  assert.equal(encrypted.sparse[3], 7);
+  assert.equal(encrypted.untouched, false);
+  assert.deepEqual(encrypted.empty, []);
+
+  assert.deepEqual(
+    processConfig(encrypted, {
+      mode: 'decrypt',
+      key: KEY,
+      pathPatterns,
+      nonStringPolicy: 'error'
+    }),
+    input
+  );
+});
+
+test('processConfig matches parentPath but authenticates each exact leaf path', () => {
+  const input = { password: 'secret', nested: { token: 'nested-secret' } };
+  const options = {
+    key: KEY,
+    parentPath: ['tenants', 0],
+    pathPatterns: ['tenants[*].**']
+  };
+
+  const encrypted = processConfig(input, { mode: 'encrypt', ...options });
+  assert.match(encrypted.password, /^yl\|2\|/);
+  assert.match(encrypted.nested.token, /^yl\|2\|/);
+  assert.deepEqual(
+    processConfig(encrypted, { mode: 'decrypt', ...options }),
+    input
+  );
+
+  assert.throws(
+    () => processConfig(
+      { moved: encrypted.password },
+      { mode: 'decrypt', ...options }
+    ),
+    (error) => error.code === 'ERR_AUTHENTICATION_FAILED'
+  );
+});
+
+test('processConfig validates path patterns before traversal', () => {
+  let valueReads = 0;
+  const input = {};
+  Object.defineProperty(input, 'secret', {
+    enumerable: true,
+    get() {
+      valueReads += 1;
+      return 'secret';
+    }
+  });
+
+  assert.throws(
+    () => processConfig(input, {
+      mode: 'encrypt',
+      key: KEY,
+      pathPatterns: ['service-*.token']
+    }),
+    (error) => (
+      error.code === 'ERR_INVALID_PATH_PATTERNS' &&
+      error.cause?.name === 'PathPatternSyntaxError'
+    )
+  );
+  assert.equal(valueReads, 0);
+
+  assert.throws(
+    () => processConfig(input, {
+      mode: 'encrypt',
+      key: KEY,
+      pathPatterns: 'secret'
+    }),
+    (error) => error.code === 'ERR_INVALID_PATH_PATTERNS'
+  );
+  assert.throws(
+    () => processConfig(input, {
+      mode: 'encrypt',
+      key: KEY,
+      pathPatterns: ['secret'],
+      pathSerializer: (segments) => segments.join('/')
+    }),
+    (error) => error.code === 'ERR_INVALID_PATH_PATTERNS'
+  );
+
+  const encrypted = processConfig(
+    { secret: 'value' },
+    {
+      mode: 'encrypt',
+      key: KEY,
+      pathPatterns: [],
+      pathSerializer: (segments) => segments.join('/')
+    }
+  );
+  assert.match(encrypted.secret, /^yl\|2\|/);
+});
+
 test('processConfig selects reserved object keys without path collisions', () => {
   const input = {
     'a.b': 'root-dot',

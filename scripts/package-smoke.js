@@ -189,16 +189,39 @@ function main() {
         'legacy-fixture-value'
       );
 
-      const input = { 'db.primary': { token: '' }, untouched: {} };
+      const input = {
+        'db.primary': { token: '' },
+        users: [{ token: 'fake-user-secret', name: 'Ada' }],
+        untouched: {}
+      };
       const encrypted = processConfig(input, {
         mode: 'encrypt',
         key,
-        paths: [fieldPath]
+        paths: [fieldPath],
+        pathPatterns: ['users[*].token']
       });
       assert.match(encrypted['db.primary'].token, /^yl\\|2\\|/);
+      assert.match(encrypted.users[0].token, /^yl\\|2\\|/);
+      assert.equal(encrypted.users[0].name, input.users[0].name);
       assert.deepEqual(
-        processConfig(encrypted, { mode: 'decrypt', key, paths: [fieldPath] }),
+        processConfig(encrypted, {
+          mode: 'decrypt',
+          key,
+          paths: [fieldPath],
+          pathPatterns: ['users[*].token']
+        }),
         input
+      );
+      assert.throws(
+        () => processConfig(input, {
+          mode: 'encrypt',
+          key,
+          pathPatterns: ['partial-*']
+        }),
+        (error) => (
+          error instanceof YamlockValidationError &&
+          error.code === YAMLOCK_ERROR_CODES.INVALID_PATH_PATTERNS
+        )
       );
     `;
     run(process.execPath, ['--input-type=module', '--eval', apiSmoke], {

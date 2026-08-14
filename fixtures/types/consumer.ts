@@ -25,7 +25,8 @@ function consumePublicApi() {
   const options: ProcessConfigOptions = {
     mode: 'encrypt',
     key,
-    paths: ['services.password']
+    paths: ['services.password'],
+    pathPatterns: ['services.*']
   };
   const encrypted = processConfig(input, options);
   const password: string = encrypted.services.password;
@@ -53,6 +54,8 @@ function consumePublicApi() {
   processConfig(input, { mode: 'rotate', key });
   // @ts-expect-error decrypt mode does not accept an existing-payload policy.
   processConfig(input, { mode: 'decrypt', key, existingPayloadPolicy: 'preserve' });
+  // @ts-expect-error path patterns must be strings.
+  processConfig(input, { mode: 'encrypt', key, pathPatterns: [true] });
   // @ts-expect-error path segments cannot be booleans.
   serializePath(['services', true]);
 
