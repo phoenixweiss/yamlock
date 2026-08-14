@@ -65,6 +65,57 @@ test('migrateConfig upgrades payloads with legacy ambiguous field paths', () => 
   );
 });
 
+test('migrateConfig combines exact paths and structural patterns', () => {
+  const input = {
+    services: [
+      {
+        token: encryptValue('first', KEY, 'services[0].token', { formatVersion: 1 }),
+        note: 'plaintext-note'
+      },
+      {
+        token: encryptValue('second', KEY, 'services[1].token', { formatVersion: 1 })
+      }
+    ],
+    exact: encryptValue('third', KEY, 'exact', { formatVersion: 1 }),
+    untouched: 'plaintext'
+  };
+
+  const result = migrateConfig(input, {
+    key: KEY,
+    paths: ['exact', 'services[0].token'],
+    pathPatterns: ['services[*].token', 'services[0].token']
+  });
+
+  assert.deepEqual(result.stats, {
+    selected: 3,
+    migrated: 3,
+    preservedV2: 0
+  });
+  assert.equal(decryptValue(result.data.services[0].token, KEY, 'services[0].token'), 'first');
+  assert.equal(decryptValue(result.data.services[1].token, KEY, 'services[1].token'), 'second');
+  assert.equal(decryptValue(result.data.exact, KEY, 'exact'), 'third');
+  assert.equal(result.data.services[0].note, 'plaintext-note');
+  assert.equal(result.data.untouched, 'plaintext');
+});
+
+test('migrateConfig validates path patterns before traversal', () => {
+  let valueReads = 0;
+  const input = {};
+  Object.defineProperty(input, 'value', {
+    enumerable: true,
+    get() {
+      valueReads += 1;
+      return 'plaintext';
+    }
+  });
+
+  assert.throws(
+    () => migrateConfig(input, { key: KEY, pathPatterns: ['partial-*'] }),
+    (error) => error.code === 'ERR_INVALID_PATH_PATTERNS'
+  );
+  assert.equal(valueReads, 0);
+});
+
 test('migrateConfig authenticates and preserves v2 values only when allowed', () => {
   const v2 = encryptValue('modern', KEY, 'token', { formatVersion: 2 });
 

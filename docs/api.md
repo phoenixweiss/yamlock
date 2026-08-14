@@ -45,16 +45,18 @@ options object with `algorithm`, `keyLength`, `ivLength`, and `authTagLength`.
 The algorithm stored in a payload is authoritative during decryption; sizing
 overrides exist only for low-level legacy compatibility.
 
-`processConfig` additionally accepts exact `paths`, `parentPath`, a custom
-`pathSerializer`, `nonStringPolicy`, and encrypt-only
+`processConfig` additionally accepts exact `paths`, structural `pathPatterns`,
+`parentPath`, a custom `pathSerializer`, `nonStringPolicy`, and encrypt-only
 `existingPayloadPolicy`. It returns a new config container and does not mutate
 the input. With `nonStringPolicy: 'stringify'`, selected finite JSON primitives
 may become strings, so the TypeScript return type is intentionally widened.
 
-`paths` remains exact throughout the `1.x` line. Structural subtree and
-wildcard selection is not implemented yet; it is specified separately in the
-[path pattern design proposal](design/path-patterns.md) so a future additive
-API does not reinterpret existing selectors.
+`paths` remains exact throughout the `1.x` line. `pathPatterns` is a separate
+selector list with whole-segment `*`, `[*]`, and `**` wildcards. Exact paths
+and patterns form a union, while payload authentication always uses the exact
+leaf path rather than pattern text. `pathPatterns` cannot be combined with a
+custom `pathSerializer`. See the [path pattern design](design/path-patterns.md)
+for the grammar and compatibility rules.
 
 See the [Node.js error contract](errors.md) and the
 [payload v2 design](design/payload-v2.md) for the security and serialization

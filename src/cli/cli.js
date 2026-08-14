@@ -14,6 +14,7 @@ import yaml from 'js-yaml';
 import { processConfig } from '../utils/config.js';
 import { writeFileAtomically } from '../utils/file.js';
 import { migrateConfig } from '../utils/migrate.js';
+import { compilePathPatterns } from '../utils/path-pattern.js';
 import { listSupportedAlgorithms, TESTED_ALGORITHMS } from '../crypto/utils.js';
 
 const require = createRequire(import.meta.url);
@@ -32,6 +33,7 @@ const OPTION_SPECS = [
   { key: 'algorithm', names: ['-a', '--algorithm'], takesValue: true },
   { key: 'output', names: ['-o', '--output'], takesValue: true },
   { key: 'paths', names: ['-p', '--paths'], takesValue: true },
+  { key: 'pathPatterns', names: ['--path-patterns'], takesValue: true },
   { key: 'dryRun', names: ['-d', '--dry-run'], takesValue: false },
   { key: 'allowMixed', names: ['--allow-mixed'], takesValue: false },
   { key: 'noBackup', names: ['--no-backup'], takesValue: false },
@@ -53,13 +55,22 @@ const COMMAND_OPTIONS = new Map([
     'algorithm',
     'output',
     'paths',
+    'pathPatterns',
     'dryRun',
     'legacy',
     'errorOnEncrypted',
     'forceEncrypt'
   ])],
-  ['decrypt', new Set(['key', 'output', 'paths', 'dryRun'])],
-  ['migrate', new Set(['key', 'output', 'paths', 'dryRun', 'allowMixed', 'noBackup'])],
+  ['decrypt', new Set(['key', 'output', 'paths', 'pathPatterns', 'dryRun'])],
+  ['migrate', new Set([
+    'key',
+    'output',
+    'paths',
+    'pathPatterns',
+    'dryRun',
+    'allowMixed',
+    'noBackup'
+  ])],
   ['keygen', new Set(['length', 'format'])],
   ['help', new Set()],
   ['version', new Set()],
@@ -87,6 +98,7 @@ Options:
   -a, --algorithm <value>  Legacy cipher algorithm (encrypt --legacy only).
   -o, --output <file>      Write the result to a different file (otherwise overwrites the input file).
   -p, --paths <p1,p2>      Comma-separated escaped field paths to process (dot/bracket notation).
+  --path-patterns <p1,p2>  Structural selectors using *, [*], and ** whole-segment wildcards.
   -d, --dry-run             Preview the operation without modifying files.
   --allow-mixed            (migrate) Authenticate and preserve selected v2 values.
   --no-backup              (migrate) Replace the input without creating <file>.yamlock.bak.
@@ -104,6 +116,7 @@ YAML rewrite note:
 Path syntax:
   Object-key backslashes, dots, brackets, and commas must be backslash-escaped.
   Example: db\\.primary.token selects { "db.primary": { "token": ... } }.
+  Patterns are separate selectors; e.g. services.*.token or users[*].token.
 `;
 }
 
@@ -164,7 +177,7 @@ function serializeConfig(format, data) {
   return `${JSON.stringify(data, null, 2)}\n`;
 }
 
-function parsePaths(value) {
+function splitPathList(value) {
   if (!value) {
     return [];
   }
@@ -189,9 +202,7 @@ function parsePaths(value) {
   }
   paths.push(current);
 
-  return paths
-    .map((segment) => segment.trim())
-    .filter((segment) => segment.length > 0);
+  return paths.map((segment) => segment.trim());
 }
 
 function parseArgs(argv) {
@@ -242,15 +253,26 @@ function parseArgs(argv) {
         );
       }
 
-      if (spec.key === 'paths') {
-        const paths = parsePaths(next);
-        if (paths.length === 0) {
+      if (spec.key === 'paths' || spec.key === 'pathPatterns') {
+        const splitSelectors = splitPathList(next);
+        const selectors = spec.key === 'pathPatterns'
+          ? splitSelectors
+          : splitSelectors.filter((selector) => selector.length > 0);
+        if (
+          selectors.length === 0 ||
+          (spec.key === 'pathPatterns' && selectors.some((selector) => selector.length === 0))
+        ) {
           throw cliError(
-            'ERR_INVALID_OPTION_VALUE',
-            'Option --paths requires at least one non-empty field path.'
+            spec.key === 'pathPatterns'
+              ? 'ERR_INVALID_PATH_PATTERNS'
+              : 'ERR_INVALID_OPTION_VALUE',
+            `Option ${OPTION_LABELS.get(spec.key)} requires at least one non-empty selector.`
           );
         }
-        result.options.paths = paths;
+        if (spec.key === 'pathPatterns') {
+          compilePathPatterns(selectors);
+        }
+        result.options[spec.key] = selectors;
       } else {
         result.options[spec.key] = next;
       }
@@ -435,6 +457,7 @@ function handleMigration({ file, absolutePath, outputPath, config, key, options 
   const result = migrateConfig(config.data, {
     key,
     paths: options.paths,
+    pathPatterns: options.pathPatterns,
     allowMixed: options.allowMixed
   });
   const serialized = serializeConfig(config.format, result.data);
@@ -629,7 +652,8 @@ export async function runCli(argv = process.argv) {
           : options.errorOnEncrypted
             ? 'error'
             : 'preserve',
-        paths: options.paths
+        paths: options.paths,
+        pathPatterns: options.pathPatterns
       });
       if (outputPath === absolutePath && isDeepStrictEqual(result, config.data)) {
         print('No plaintext values required encryption. No files were modified.');
@@ -651,7 +675,8 @@ export async function runCli(argv = process.argv) {
       const result = processConfig(config.data, {
         mode: 'decrypt',
         key,
-        paths: options.paths
+        paths: options.paths,
+        pathPatterns: options.pathPatterns
       });
       handleWrite({
         dryRun: options.dryRun,
@@ -671,8 +696,10 @@ export async function runCli(argv = process.argv) {
     const structuredCode = typeof error.code === 'string' && error.code.startsWith('ERR_')
       ? error.code
       : null;
+    const isMigrationCode = structuredCode === 'ERR_INVALID_PATH_PATTERNS' ||
+      structuredCode?.startsWith('ERR_MIGRATION_');
     const code = command === 'migrate'
-      ? structuredCode?.startsWith('ERR_MIGRATION_')
+      ? isMigrationCode
         ? structuredCode
         : 'ERR_MIGRATION_FAILED'
       : structuredCode ?? 'ERR_PROCESS_FAILED';

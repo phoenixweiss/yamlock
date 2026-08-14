@@ -253,7 +253,8 @@ function main() {
 
     const cliInput = {
       'a.b': 'fake-cli-secret',
-      a: { b: 'untouched' }
+      a: { b: 'untouched' },
+      users: [{ token: 'fake-user-secret', name: 'Ada' }]
     };
     const configPath = join(projectDirectory, 'config.json');
     writeFileSync(configPath, `${JSON.stringify(cliInput, null, 2)}\n`);
@@ -269,6 +270,7 @@ function main() {
       env: cliEnvironment
     });
     assert.match(helpResult.stdout, /Usage:\s+yamlock <command>/);
+    assert.match(helpResult.stdout, /--path-patterns/);
 
     const versionResult = run(process.execPath, [installedCli, 'version'], {
       cwd: projectDirectory,
@@ -299,12 +301,16 @@ function main() {
       '--key',
       SMOKE_KEY,
       '--paths',
-      escapedPath
+      escapedPath,
+      '--path-patterns',
+      'users[*].token'
     ], { cwd: projectDirectory, env: cliEnvironment });
 
     const encryptedConfig = readJson(configPath);
     assert.match(encryptedConfig['a.b'], /^yl\|2\|/);
     assert.equal(encryptedConfig.a.b, 'untouched');
+    assert.match(encryptedConfig.users[0].token, /^yl\|2\|/);
+    assert.equal(encryptedConfig.users[0].name, 'Ada');
 
     run(process.execPath, [
       installedCli,
@@ -313,9 +319,42 @@ function main() {
       '--key',
       SMOKE_KEY,
       '--paths',
-      escapedPath
+      escapedPath,
+      '--path-patterns',
+      'users[*].token'
     ], { cwd: projectDirectory, env: cliEnvironment });
     assert.deepEqual(readJson(configPath), cliInput);
+
+    const migrationPath = join(projectDirectory, 'migration.json');
+    writeFileSync(
+      migrationPath,
+      `${JSON.stringify({ users: [{ token: 'fake-legacy-secret', name: 'Grace' }] }, null, 2)}\n`
+    );
+    run(process.execPath, [
+      installedCli,
+      'encrypt',
+      migrationPath,
+      '--key',
+      SMOKE_KEY,
+      '--legacy',
+      '--path-patterns',
+      'users[*].token'
+    ], { cwd: projectDirectory, env: cliEnvironment });
+    assert.match(readJson(migrationPath).users[0].token, /^yl\|aes-256-cbc\|/);
+
+    run(process.execPath, [
+      installedCli,
+      'migrate',
+      migrationPath,
+      '--key',
+      SMOKE_KEY,
+      '--path-patterns',
+      'users[*].token',
+      '--no-backup'
+    ], { cwd: projectDirectory, env: cliEnvironment });
+    const migratedConfig = readJson(migrationPath);
+    assert.match(migratedConfig.users[0].token, /^yl\|2\|/);
+    assert.equal(migratedConfig.users[0].name, 'Grace');
 
     console.log(`Package smoke passed: ${basename(archivePath)}`);
   } finally {

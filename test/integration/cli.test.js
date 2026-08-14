@@ -369,6 +369,10 @@ test('CLI rejects malformed argument lists without modifying input', () => {
       code: 'ERR_MISSING_OPTION_VALUE'
     },
     {
+      args: ['encrypt', filePath, '--path-patterns'],
+      code: 'ERR_MISSING_OPTION_VALUE'
+    },
+    {
       args: ['keygen', '--format'],
       code: 'ERR_MISSING_OPTION_VALUE'
     },
@@ -383,6 +387,14 @@ test('CLI rejects malformed argument lists without modifying input', () => {
     {
       args: ['encrypt', filePath, '--key', KEY, '--paths', ','],
       code: 'ERR_INVALID_OPTION_VALUE'
+    },
+    {
+      args: ['encrypt', filePath, '--key', KEY, '--path-patterns', ','],
+      code: 'ERR_INVALID_PATH_PATTERNS'
+    },
+    {
+      args: ['encrypt', filePath, '--key', KEY, '--path-patterns', 'db.**,,users[*]'],
+      code: 'ERR_INVALID_PATH_PATTERNS'
     }
   ];
 
@@ -400,6 +412,7 @@ test('CLI enforces command-specific options and positional arguments', () => {
     ['encrypt', filePath, '--key', KEY, '--allow-mixed'],
     ['decrypt', filePath, '--key', KEY, '--legacy'],
     ['migrate', filePath, '--key', KEY, '--force-encrypt'],
+    ['keygen', '--path-patterns', 'db.**'],
     ['keygen', '--key', KEY],
     ['version', '--dry-run']
   ];
@@ -523,6 +536,147 @@ test('CLI selects escaped object keys without matching nested paths', () => {
   ]);
   assert.equal(decryptedResult.status, 0, decryptedResult.stderr);
   assert.deepEqual(JSON.parse(readFileSync(filePath, 'utf8')), input);
+});
+
+test('CLI encrypts and decrypts structural path patterns as a selector union', () => {
+  const input = {
+    services: {
+      api: { token: 'api-secret', url: 'https://api.example.com' },
+      web: { token: 'web-secret', enabled: 'yes' }
+    },
+    users: [{ token: 'user-secret', name: 'Ada' }],
+    exact: 'exact-secret',
+    'labels,primary': 'comma-secret',
+    untouched: 'plain'
+  };
+  const filePath = createTempFile(input);
+  const patterns = String.raw`services.*.token,users[*].token,labels\,primary`;
+
+  const encryptedResult = runCli([
+    'encrypt',
+    filePath,
+    '--key',
+    KEY,
+    '--paths',
+    'exact,services.api.token',
+    '--path-patterns',
+    patterns
+  ]);
+  assert.equal(encryptedResult.status, 0, encryptedResult.stderr);
+
+  const encrypted = JSON.parse(readFileSync(filePath, 'utf8'));
+  assert.match(encrypted.services.api.token, /^yl\|2\|/);
+  assert.match(encrypted.services.web.token, /^yl\|2\|/);
+  assert.match(encrypted.users[0].token, /^yl\|2\|/);
+  assert.match(encrypted.exact, /^yl\|2\|/);
+  assert.match(encrypted['labels,primary'], /^yl\|2\|/);
+  assert.equal(encrypted.services.api.url, input.services.api.url);
+  assert.equal(encrypted.users[0].name, input.users[0].name);
+  assert.equal(encrypted.untouched, input.untouched);
+
+  const decryptedResult = runCli([
+    'decrypt',
+    filePath,
+    '--key',
+    KEY,
+    '--paths',
+    'exact',
+    '--path-patterns',
+    patterns
+  ]);
+  assert.equal(decryptedResult.status, 0, decryptedResult.stderr);
+  assert.deepEqual(JSON.parse(readFileSync(filePath, 'utf8')), input);
+});
+
+test('CLI path patterns support YAML dry-run and separate output', () => {
+  const input = {
+    services: {
+      api: { token: 'api-secret', label: 'api' },
+      web: { token: 'web-secret', label: 'web' }
+    }
+  };
+  const filePath = createTempFile(input, '.yaml');
+  const outputPath = `${filePath}.encrypted.yaml`;
+  const originalRaw = readFileSync(filePath, 'utf8');
+  const args = [
+    'encrypt',
+    filePath,
+    '--key',
+    KEY,
+    '--path-patterns',
+    'services.*.token',
+    '--output',
+    outputPath
+  ];
+
+  const dryRun = runCli([...args, '--dry-run']);
+  assert.equal(dryRun.status, 0, dryRun.stderr);
+  assert.match(dryRun.stdout, /DRY-RUN \(encrypt\)/);
+  assert.equal(readFileSync(filePath, 'utf8'), originalRaw);
+  assert.equal(existsSync(outputPath), false);
+
+  const encryptedResult = runCli(args);
+  assert.equal(encryptedResult.status, 0, encryptedResult.stderr);
+  assert.equal(readFileSync(filePath, 'utf8'), originalRaw);
+  const encrypted = yaml.load(readFileSync(outputPath, 'utf8'));
+  assert.match(encrypted.services.api.token, /^yl\|2\|/);
+  assert.match(encrypted.services.web.token, /^yl\|2\|/);
+  assert.equal(encrypted.services.api.label, 'api');
+
+  const decryptedResult = runCli([
+    'decrypt',
+    outputPath,
+    '--key',
+    KEY,
+    '--path-patterns',
+    'services.*.token'
+  ]);
+  assert.equal(decryptedResult.status, 0, decryptedResult.stderr);
+  assert.deepEqual(yaml.load(readFileSync(outputPath, 'utf8')), input);
+});
+
+test('CLI rejects malformed path patterns before reading input files', () => {
+  const root = mkdtempSync(join(tmpdir(), 'yamlock-pattern-validation-'));
+  const missingPath = join(root, 'missing.json');
+  const outputPath = join(root, 'output.json');
+
+  for (const command of ['encrypt', 'decrypt', 'migrate']) {
+    const result = runCli([
+      command,
+      missingPath,
+      '--key',
+      KEY,
+      '--path-patterns',
+      'partial-*',
+      '--output',
+      outputPath
+    ]);
+    assert.equal(result.status, 1, result.stderr);
+    assert.match(result.stderr, /\[yamlock:ERR_INVALID_PATH_PATTERNS]/);
+    assert.doesNotMatch(result.stderr, /ERR_READ_FAILED/);
+    assert.equal(existsSync(outputPath), false);
+    assert.equal(existsSync(`${missingPath}.yamlock.bak`), false);
+  }
+});
+
+test('CLI pattern-selected decrypt failures do not modify input', () => {
+  const payload = encryptValue('secret', KEY, 'secrets.first');
+  const input = { secrets: { first: payload, second: 'plaintext' } };
+  const filePath = createTempFile(input);
+  const originalRaw = readFileSync(filePath, 'utf8');
+
+  const result = runCli([
+    'decrypt',
+    filePath,
+    '--key',
+    KEY,
+    '--path-patterns',
+    'secrets.*'
+  ]);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /\[yamlock:ERR_INVALID_PAYLOAD]/);
+  assert.equal(readFileSync(filePath, 'utf8'), originalRaw);
 });
 
 test('CLI writes to a separate file when --output is used', () => {
@@ -779,6 +933,69 @@ test('CLI migrates legacy payloads in place with backup and preserved permission
   assert.equal(migrated.db.user, 'app');
 });
 
+test('CLI migration supports path patterns and exact selectors as a union', () => {
+  const input = {
+    services: [
+      {
+        token: encryptLegacy('first', 'services[0].token'),
+        note: 'plaintext-note'
+      },
+      { token: encryptLegacy('second', 'services[1].token') }
+    ],
+    exact: encryptLegacy('third', 'exact'),
+    untouched: 'plaintext'
+  };
+  const filePath = createTempFile(input);
+
+  const result = runCli([
+    'migrate',
+    filePath,
+    '--key',
+    KEY,
+    '--paths',
+    'exact,services[0].token',
+    '--path-patterns',
+    'services[*].token,services[0].token',
+    '--no-backup'
+  ]);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Migrated 3 legacy value/);
+  assert.equal(existsSync(`${filePath}.yamlock.bak`), false);
+  const migrated = JSON.parse(readFileSync(filePath, 'utf8'));
+  assert.equal(decryptValue(migrated.services[0].token, KEY, 'services[0].token'), 'first');
+  assert.equal(decryptValue(migrated.services[1].token, KEY, 'services[1].token'), 'second');
+  assert.equal(decryptValue(migrated.exact, KEY, 'exact'), 'third');
+  assert.equal(migrated.services[0].note, 'plaintext-note');
+  assert.equal(migrated.untouched, 'plaintext');
+});
+
+test('CLI migration path pattern failures leave source and backup untouched', () => {
+  const input = {
+    secrets: {
+      first: encryptLegacy('first', 'secrets.first'),
+      second: 'plaintext'
+    }
+  };
+  const filePath = createTempFile(input);
+  const originalRaw = readFileSync(filePath, 'utf8');
+
+  const result = runCli([
+    'migrate',
+    filePath,
+    '--key',
+    KEY,
+    '--path-patterns',
+    'secrets.*'
+  ]);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /\[yamlock:ERR_MIGRATION_PLAINTEXT]/);
+  assert.doesNotMatch(result.stderr, /first-secret/);
+  assert.equal(readFileSync(filePath, 'utf8'), originalRaw);
+  assert.equal(existsSync(`${filePath}.yamlock.bak`), false);
+});
+
 test('CLI migration dry-run leaves input and backups untouched', () => {
   const legacy = encryptLegacy('dry-run-secret', 'value');
   const filePath = createTempFile({ value: legacy, note: 'visible-plaintext' });
@@ -851,7 +1068,14 @@ test('CLI migration fails closed on an authenticated legacy payload with the wro
   const filePath = createTempFile({ value: legacy });
   const originalRaw = readFileSync(filePath, 'utf8');
 
-  const result = runCli(['migrate', filePath, '--key', 'wrong-key']);
+  const result = runCli([
+    'migrate',
+    filePath,
+    '--key',
+    'wrong-key',
+    '--path-patterns',
+    'value'
+  ]);
 
   assert.equal(result.status, 1);
   assert.match(result.stderr, /\[yamlock:ERR_MIGRATION_FAILED]/);

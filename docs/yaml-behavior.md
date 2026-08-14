@@ -39,8 +39,9 @@ unchanged.
 
 1. Keep source YAML under version control or make a verified backup.
 2. Run with `--dry-run` to inspect the complete serialized result.
-3. Use `--paths` to select every resolved path that should be encrypted,
-   including values originally introduced through aliases or merge keys.
+3. Use exact `--paths` or structural `--path-patterns` to select every resolved
+   path that should be encrypted, including values originally introduced
+   through aliases or merge keys.
 4. Use `--output` when the source document's comments or formatting must remain
    untouched.
 5. Do not use unknown application-specific YAML tags in files processed by the

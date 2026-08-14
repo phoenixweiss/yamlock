@@ -1,8 +1,7 @@
 # Path pattern design
 
-Status: implementation in progress for a future `1.x` minor release. The
-tokenizer/matcher and `processConfig` option are implemented; CLI support and
-public usage documentation remain pending.
+Status: implemented on `dev` for a future `1.x` minor release; release and
+hosted-CI verification remain pending.
 
 ## Goals
 
@@ -28,8 +27,8 @@ public usage documentation remain pending.
 
 ## Compatibility decision
 
-The Node.js API will add a separate `pathPatterns?: string[]` option. The CLI
-will add `--path-patterns <pattern1,pattern2>`. Existing `paths` and `--paths`
+The Node.js API adds a separate `pathPatterns?: string[]` option. The CLI adds
+`--path-patterns <pattern1,pattern2>`. Existing `paths` and `--paths`
 remain exact selectors, including strings containing literal `*` characters.
 
 Exact selectors and patterns form a union: a leaf is selected when either its
@@ -44,7 +43,7 @@ authentication continue to use the exact canonical path, or the exact output
 of `pathSerializer` where supported. This prevents a broad selector such as
 `db.**` from weakening field-path binding.
 
-`pathPatterns` and `pathSerializer` will initially be mutually exclusive. Exact
+`pathPatterns` and `pathSerializer` are mutually exclusive. Exact
 `paths` remain available with a custom serializer. Failing closed avoids an
 ambiguous API where pattern syntax appears to use a serializer but actually
 matches a different structural representation.
@@ -119,7 +118,7 @@ must use a bounded dynamic-programming or equivalent token algorithm rather
 than converting user input into a backtracking regular expression. A malformed
 pattern must fail before traversal, crypto work, or file access.
 
-## API and CLI proposal
+## API and CLI
 
 Node.js API:
 

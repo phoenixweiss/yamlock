@@ -6,6 +6,7 @@ import {
 } from '../crypto/payload-v2.js';
 import { isYamlockPayload } from '../crypto/utils.js';
 import { serializeLegacyPath, serializePath } from './path.js';
+import { compilePathPatterns, matchesAnyPathPattern } from './path-pattern.js';
 
 function createMigrationError(code, message) {
   const error = new Error(message);
@@ -59,7 +60,10 @@ function traverse(node, context) {
       return;
     }
 
-    const selected = !context.paths || context.paths.has(currentPath);
+    const hasSelectors = context.paths !== null || context.pathPatterns.length > 0;
+    const selected = !hasSelectors ||
+      context.paths?.has(currentPath) ||
+      matchesAnyPathPattern(context.pathPatterns, pathSegments);
     if (!selected) {
       setResultValue(result, targetKey, value);
       return;
@@ -77,7 +81,7 @@ function traverse(node, context) {
     if (!isYamlockPayload(value)) {
       throw createMigrationError(
         'ERR_MIGRATION_PLAINTEXT',
-        `Selected value at ${currentPath} is not encrypted; narrow --paths to legacy payloads.`
+        `Selected value at ${currentPath} is not encrypted; narrow the path selectors to legacy payloads.`
       );
     }
 
@@ -124,6 +128,7 @@ function traverse(node, context) {
  * @param {Object} options
  * @param {string|Buffer} options.key
  * @param {string[]} [options.paths]
+ * @param {string[]} [options.pathPatterns]
  * @param {boolean} [options.allowMixed=false]
  * @returns {{ data: Object|Array, changed: boolean, stats: { selected: number, migrated: number, preservedV2: number } }}
  */
@@ -150,6 +155,7 @@ export function migrateConfig(node, options) {
   const data = traverse(node, {
     key: options.key,
     paths: normalizePaths(options.paths),
+    pathPatterns: compilePathPatterns(options.pathPatterns),
     allowMixed: options.allowMixed === true,
     parentPath: [],
     stats

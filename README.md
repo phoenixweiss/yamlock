@@ -40,6 +40,7 @@ yarn add yamlock            # project dependency
 - CLI workflow that processes YAML or JSON files in place.
 - Safe CLI migration from legacy payloads to authenticated v2 payloads.
 - Recursively lock/unlock entire objects via `processConfig`.
+- Select repeated fields or subtrees with structural path patterns.
 - Public API exports that mirror CLI behavior for programmatic use.
 - Focus on Node.js 22+, ESM modules, and a lightweight dependency set (`js-yaml`).
 
@@ -56,6 +57,9 @@ yamlock decrypt settings.json --key "super-secret"
 
 # Encrypt only selected fields into a new file
 yamlock encrypt config.json --key "$YAMLOCK_KEY" --paths "db.password,api.token" --output config.secure.json
+
+# Encrypt repeated tokens and an entire subtree
+yamlock encrypt config.json --key "$YAMLOCK_KEY" --path-patterns 'users[*].token,services.**'
 
 # Inspect CLI metadata
 yamlock --help
@@ -90,6 +94,7 @@ and use `--dry-run` or `--output` when presentation details matter.
 Options of note:
 - `--output <file>` writes the result to a separate file instead of overwriting the input.
 - `--paths <path1,path2>` targets only the specified fields using the [escaped path syntax](#field-path-syntax).
+- `--path-patterns <pattern1,pattern2>` selects structural paths with whole-segment `*`, `[*]`, and `**` wildcards.
 - `--dry-run` previews an operation without modifying files; encrypt/decrypt print content changes, while migrate prints only counts and target paths.
 - `migrate` decrypts selected legacy payloads and re-encrypts them as authenticated v2 payloads.
 - `migrate --allow-mixed` additionally authenticates and preserves selected values that are already v2.
@@ -138,6 +143,33 @@ readable through the default serializer's compatibility path; selecting those
 keys now requires the canonical escaped spelling. A custom `pathSerializer`
 keeps its own contract and does not use the default compatibility fallback.
 
+### Path patterns
+
+Patterns are separate from exact `paths`; using both forms a union. They match
+complete structural leaf paths:
+
+- `services.*.token` matches one object-key segment, such as
+  `services.api.token`, but not `services[0].token`.
+- `users[*].token` matches array elements such as `users[0].token`.
+- `db.**` matches a leaf at `db` or any descendant below it, including arrays.
+
+Wildcards must occupy a complete segment. Partial globs such as `service-*`
+are rejected with `ERR_INVALID_PATH_PATTERNS` before the CLI reads the input
+file. Literal reserved characters use the same escaping as exact paths, and
+`\*` selects a literal asterisk key:
+
+```bash
+yamlock encrypt config.json \
+  --key "$YAMLOCK_KEY" \
+  --paths 'root.literal' \
+  --path-patterns 'services.*.token,users[*].token,labels\,primary'
+```
+
+Patterns only decide which leaves are selected. Encryption, decryption, and
+migration continue to bind every payload to its exact canonical leaf path.
+Node.js callers use `pathPatterns: string[]`; it cannot be combined with a
+custom `pathSerializer`.
+
 ### Node.js API
 
 ```js
@@ -147,8 +179,17 @@ const encrypted = encryptValue('swordfish', process.env.YAMLOCK_KEY, 'db.passwor
 const decrypted = decryptValue(encrypted, process.env.YAMLOCK_KEY, 'db.password');
 
 const config = { db: { password: 'swordfish' } };
-const locked = processConfig(config, { mode: 'encrypt', key: process.env.YAMLOCK_KEY });
-const unlocked = processConfig(locked, { mode: 'decrypt', key: process.env.YAMLOCK_KEY });
+const selectors = { pathPatterns: ['db.**'] };
+const locked = processConfig(config, {
+  mode: 'encrypt',
+  key: process.env.YAMLOCK_KEY,
+  ...selectors
+});
+const unlocked = processConfig(locked, {
+  mode: 'decrypt',
+  key: process.env.YAMLOCK_KEY,
+  ...selectors
+});
 ```
 
 Expected Node.js API failures extend `YamlockError` and expose stable `ERR_*`
@@ -303,10 +344,11 @@ yamlock migrate config.yaml --key "$YAMLOCK_KEY" --paths "db.password,api.token"
 
 Migration validates every selected value and builds the complete result before
 writing. Selected plaintext and non-string values are rejected, so use
-`--paths` for partially encrypted configs. Selected v2 values are rejected
-unless `--allow-mixed` is set; with that flag they are authenticated and kept
-unchanged. In-place writes are atomic, preserve the source file mode, and do
-not replace an existing backup. To roll back, verify the backup and then copy
+`--paths` or `--path-patterns` for partially encrypted configs. Selected v2
+values are rejected unless `--allow-mixed` is set; with that flag they are
+authenticated and kept unchanged. In-place writes are atomic, preserve the
+source file mode, and do not replace an existing backup. To roll back, verify
+the backup and then copy
 `config.yaml.yamlock.bak` over `config.yaml`.
 
 Legacy AES-CBC payloads have no authentication, so migration can only validate
@@ -318,7 +360,7 @@ not received a third-party security audit.
 
 ## Advanced usage
 
-- **Selective encryption**: combine `--paths` on the CLI or a non-empty `paths: ['db.password']` array in `processConfig` to encrypt only sensitive fields.
+- **Selective encryption**: use exact `--paths`/`paths` selectors, structural `--path-patterns`/`pathPatterns`, or their union to encrypt only sensitive fields.
 - **Repeated encryption**: valid selected payloads are authenticated and preserved; add `--error-on-encrypted` or `existingPayloadPolicy: 'error'` for strict workflows.
 - **Non-string handling**: use `nonStringPolicy: 'ignore' | 'stringify' | 'error'` to preserve opaque leaves, stringify finite JSON primitives, or reject selected non-string values; use `pathSerializer` to change path representation (e.g., `db/password` instead of dot notation).
 - **CI/CD flows**: see [examples/docs/ci-cd.md](examples/docs/ci-cd.md) for a GitHub Actions job that decrypts configs for builds and re-encrypts them before publishing artifacts.

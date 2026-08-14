@@ -53,6 +53,7 @@ repeat string literals.
 | `ERR_INVALID_FIELD_PATH` | The caller supplied an invalid field path. |
 | `ERR_INVALID_OPTIONS` | Crypto options have an invalid shape or unsupported override. |
 | `ERR_INVALID_MODE` | `processConfig` received an unknown mode. |
+| `ERR_INVALID_PATH_PATTERNS` | A path pattern list or pattern syntax is invalid. |
 | `ERR_UNSUPPORTED_ALGORITHM` | The requested writer algorithm is unavailable or unsupported. |
 | `ERR_UNSUPPORTED_PAYLOAD_VERSION` | The payload or requested writer version is unsupported. |
 | `ERR_INVALID_PAYLOAD` | The payload is missing or malformed. |
@@ -63,7 +64,7 @@ repeat string literals.
 | `ERR_DECRYPTION_FAILED` | A legacy payload could not be decrypted. |
 
 `processConfig` also preserves its specific codes for invalid roots/options,
-policies, path serializers, path lists, circular input, path collisions,
+policies, path serializers, exact path lists, path patterns, circular input, path collisions,
 non-string values, unsupported values, and already encrypted values. These are
 available through `YAMLOCK_ERROR_CODES` and use `YamlockConfigError`.
 
