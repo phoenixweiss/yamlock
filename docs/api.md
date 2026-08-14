@@ -51,6 +51,11 @@ overrides exist only for low-level legacy compatibility.
 the input. With `nonStringPolicy: 'stringify'`, selected finite JSON primitives
 may become strings, so the TypeScript return type is intentionally widened.
 
+`paths` remains exact throughout the `1.x` line. Structural subtree and
+wildcard selection is not implemented yet; it is specified separately in the
+[path pattern design proposal](design/path-patterns.md) so a future additive
+API does not reinterpret existing selectors.
+
 See the [Node.js error contract](errors.md) and the
 [payload v2 design](design/payload-v2.md) for the security and serialization
 details.

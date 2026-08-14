@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file. Release ver
 
 ### Added
 - Tag-gated GitHub Release automation that reuses the full CI matrix, validates the tag against `main`, derives notes from the matching changelog section, verifies a draft, and publishes the release as latest.
+- A compatibility-first design proposal for future subtree and wildcard path selectors without reinterpreting existing exact `paths`.
 
 ## [1.0.0] - 2026-08-11
 

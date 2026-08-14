@@ -396,6 +396,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development workflow, available scrip
 
 ## Future work
 
+- Safe subtree and wildcard selectors are specified in the
+  [path pattern design proposal](docs/design/path-patterns.md). Existing
+  `paths` remain exact; the proposed feature is not implemented yet.
 - An async encryption API with bounded scrypt concurrency for large configs.
 - Stricter file-format validation and preservation rules for advanced YAML features.
 
