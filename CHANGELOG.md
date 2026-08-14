@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file. Release ver
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-08-14
+
 ### Added
 - Tag-gated GitHub Release automation that reuses the full CI matrix, validates the tag against `main`, derives notes from the matching changelog section, verifies a draft, and publishes the release as latest.
 - Structural `pathPatterns` / `--path-patterns` selectors for `processConfig` and CLI encrypt/decrypt/migrate workflows, with whole-segment `*`, `[*]`, and `**` matching, exact-path authentication, and fail-closed validation without reinterpreting existing `paths`.
