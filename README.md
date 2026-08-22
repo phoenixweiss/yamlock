@@ -7,6 +7,8 @@
 [![npm version](https://img.shields.io/npm/v/yamlock)](https://www.npmjs.com/package/yamlock)
 [![CI](https://github.com/phoenixweiss/yamlock/actions/workflows/ci.yml/badge.svg)](https://github.com/phoenixweiss/yamlock/actions/workflows/ci.yml)
 
+[Project website](https://phoenixweiss.github.io/yamlock/)
+
 # yamlock
 
 Value-level encryption for YAML and JSON configuration files. The name **yamlock** combines "YAML" and "lock" while also sounding like "warlock", hinting at a little configuration magic.

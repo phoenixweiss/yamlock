@@ -1,0 +1,120 @@
+name: Website deployment
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - "VERSION"
+      - "website/**"
+      - ".github/workflows/pages.yml"
+      - ".github/workflows/site-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build stable website
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: website
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Verify stable release version
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: .
+        run: |
+          set -euo pipefail
+
+          version="$(tr -d '[:space:]' < VERSION)"
+          release_tag="$(
+            gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name
+          )"
+
+          if [[ "$release_tag" != "v$version" ]]; then
+            printf 'VERSION %s does not match latest stable release %s.\n' \
+              "$version" \
+              "$release_tag" >&2
+            exit 1
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: website/.nvmrc
+          cache: yarn
+          cache-dependency-path: website/yarn.lock
+
+      - name: Verify Yarn Classic
+        shell: bash
+        run: |
+          expected_version="$(
+            node -p "require('./package.json').packageManager.replace(/^yarn@/, '')"
+          )"
+          actual_version="$(yarn --version)"
+
+          if [[ "$actual_version" != "$expected_version" ]]; then
+            printf 'Expected Yarn %s, found %s.\n' \
+              "$expected_version" \
+              "$actual_version" >&2
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile --non-interactive
+
+      - name: Check website
+        run: yarn run check
+
+      - name: Verify static output
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f dist/index.html
+          test -d dist/assets
+
+          if find dist -type l -print -quit | grep -q .; then
+            printf 'Website output must not contain symbolic links.\n' >&2
+            exit 1
+          fi
+
+          grep -Fq '/yamlock/assets/' dist/index.html
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: website/dist
+
+  deploy:
+    name: Deploy GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
