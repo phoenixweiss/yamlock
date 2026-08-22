@@ -79,21 +79,6 @@ jobs:
       - name: Check website
         run: yarn run check
 
-      - name: Verify static output
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          test -f dist/index.html
-          test -d dist/assets
-
-          if find dist -type l -print -quit | grep -q .; then
-            printf 'Website output must not contain symbolic links.\n' >&2
-            exit 1
-          fi
-
-          grep -Fq '/yamlock/assets/' dist/index.html
-
       - name: Configure GitHub Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 

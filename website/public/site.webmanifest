@@ -1,0 +1,19 @@
+{
+  "name": "yamlock",
+  "short_name": "yamlock",
+  "description": "Value-level encryption for YAML and JSON configuration files.",
+  "lang": "en",
+  "start_url": "/yamlock/",
+  "scope": "/yamlock/",
+  "display": "standalone",
+  "background_color": "#07070a",
+  "theme_color": "#11101a",
+  "icons": [
+    {
+      "src": "/yamlock/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

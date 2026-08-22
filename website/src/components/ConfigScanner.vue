@@ -51,13 +51,20 @@ const formats = {
 };
 
 const format = ref("yaml");
-const progress = ref(42);
+const progress = ref(0);
+const direction = ref(1);
 const dragging = ref(false);
 const stage = ref(null);
 const reducedMotion = ref(false);
 const lines = computed(() => formats[format.value]);
 const scannerStyle = computed(() => ({ "--scan": `${progress.value}%` }));
 const labelFlipped = computed(() => progress.value > 76);
+const operation = computed(() =>
+  direction.value === 1 ? "encrypt" : "decrypt",
+);
+const operationProgress = computed(() =>
+  Math.round(direction.value === 1 ? progress.value : 100 - progress.value),
+);
 const encryptedClip = computed(() => ({
   clipPath: `inset(0 ${100 - progress.value}% 0 0)`,
 }));
@@ -72,7 +79,6 @@ const status = computed(() => {
 const sparks = ["7", "f", "|", "2", "a", "9", "y", "l", "G", "3", "|", "K"];
 let animationFrame;
 let lastTimestamp = 0;
-let direction = 1;
 let resumeAt = 0;
 let motionQuery;
 
@@ -87,7 +93,14 @@ function setProgress(value) {
 function setFromPointer(event) {
   const bounds = stage.value.getBoundingClientRect();
   const nextProgress = ((event.clientX - bounds.left) / bounds.width) * 100;
-  setProgress(nextProgress <= 2 ? 0 : nextProgress >= 98 ? 100 : nextProgress);
+  const boundedProgress =
+    nextProgress <= 2 ? 0 : nextProgress >= 98 ? 100 : nextProgress;
+
+  if (boundedProgress !== progress.value) {
+    direction.value = boundedProgress > progress.value ? 1 : -1;
+  }
+
+  setProgress(boundedProgress);
   pauseAutomation();
 }
 
@@ -109,20 +122,26 @@ function stopDrag(event) {
 }
 
 function scrub(event) {
-  setProgress(Number(event.target.value));
+  const nextProgress = Number(event.target.value);
+
+  if (nextProgress !== progress.value) {
+    direction.value = nextProgress > progress.value ? 1 : -1;
+  }
+
+  setProgress(nextProgress);
   pauseAutomation(3200);
 }
 
 function jumpTo(value) {
   setProgress(value);
-  direction = value === 100 ? -1 : 1;
+  direction.value = value === 100 ? -1 : 1;
   pauseAutomation(3200);
 }
 
 function selectFormat(nextFormat) {
   format.value = nextFormat;
   progress.value = 38;
-  direction = 1;
+  direction.value = 1;
   pauseAutomation(900);
 }
 
@@ -136,15 +155,15 @@ function animate(timestamp) {
   lastTimestamp = timestamp;
 
   if (!reducedMotion.value && !dragging.value && timestamp > resumeAt) {
-    progress.value += direction * delta * 0.0075;
+    progress.value += direction.value * delta * 0.0075;
 
     if (progress.value >= 100) {
       progress.value = 100;
-      direction = -1;
+      direction.value = -1;
       resumeAt = timestamp + 900;
     } else if (progress.value <= 0) {
       progress.value = 0;
-      direction = 1;
+      direction.value = 1;
       resumeAt = timestamp + 700;
     }
   }
@@ -156,6 +175,7 @@ onMounted(() => {
   motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
   reducedMotion.value = motionQuery.matches;
   motionQuery.addEventListener("change", syncMotionPreference);
+  pauseAutomation(700);
   animationFrame = requestAnimationFrame(animate);
 });
 
@@ -248,7 +268,7 @@ onBeforeUnmount(() => {
         aria-hidden="true"
       >
         <span class="scan-label" :class="{ 'is-flipped': labelFlipped }">
-          encrypt / {{ Math.round(progress) }}%
+          {{ operation }} / {{ operationProgress }}%
         </span>
       </div>
 

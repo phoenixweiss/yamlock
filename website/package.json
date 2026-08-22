@@ -14,7 +14,9 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "yarn run lint && yarn run format:check && yarn run build"
+    "content:check": "node scripts/verify-content.mjs",
+    "output:check": "node scripts/verify-output.mjs",
+    "check": "yarn run lint && yarn run format:check && yarn run content:check && yarn run build && yarn run output:check"
   },
   "dependencies": {
     "@fontsource-variable/nunito-sans": "5.3.0",
