@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file. Release ver
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-08-23
+
 ### Added
 - Initial English-only Vue/Vite project website centered on an interactive YAML/JSON encryption scanner, with release-aware content, clear local-processing boundaries, and responsive installation guidance.
 - Dedicated website CI and artifact-based GitHub Pages deployment with pinned actions, frozen Yarn installs, stable-release version checks, and minimum permissions.
@@ -15,6 +17,7 @@ All notable changes to this project will be documented in this file. Release ver
 - Updated the development toolchain for Node.js 22+, added YAML single-document regressions, and limited grouped Dependabot updates to minor/patch releases so future runtime and major upgrades remain independently reviewable.
 
 ### Fixed
+- Corrected the pinned `actions/checkout` commit used by GitHub Release automation.
 - Interactive scanner now starts at the plaintext boundary and reports direction-aware encrypt/decrypt progress during automated and manual movement.
 - Improved inactive format controls and footer text contrast to meet automated accessibility checks.
 
