@@ -19,9 +19,15 @@ jobs:
     permissions:
       contents: read
 
+  website-checks:
+    name: Required website checks
+    uses: ./.github/workflows/site-ci.yml
+    permissions:
+      contents: read
+
   publish:
     name: Publish GitHub Release
-    needs: checks
+    needs: [checks, website-checks]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

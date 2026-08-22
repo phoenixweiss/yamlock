@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file. Release ver
 - Dedicated website CI and artifact-based GitHub Pages deployment with pinned actions, frozen Yarn installs, stable-release version checks, and minimum permissions.
 - GitHub Pages discovery and PWA metadata basics: canonical URLs, social previews, favicon, manifest, robots policy, sitemap, and build-time completeness checks.
 - Mobile and desktop Lighthouse budgets plus Playwright browser checks for responsive layout, keyboard controls, reduced motion, local-only behavior, and visual diagnostics.
+- Release-gated GitHub Pages deployment that checks out the exact latest stable tag only after package and website quality workflows succeed, with strict release metadata validation and manual recovery for a published tag.
 
 ### Changed
 - Updated the development toolchain for Node.js 22+, added YAML single-document regressions, and limited grouped Dependabot updates to minor/patch releases so future runtime and major upgrades remain independently reviewable.

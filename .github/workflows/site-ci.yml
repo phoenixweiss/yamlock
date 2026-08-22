@@ -1,10 +1,12 @@
 name: Website CI
 
 on:
+  workflow_call:
   pull_request:
     paths:
       - "VERSION"
       - "website/**"
+      - ".github/workflows/release.yml"
       - ".github/workflows/site-ci.yml"
       - ".github/workflows/pages.yml"
   push:
@@ -14,6 +16,7 @@ on:
     paths:
       - "VERSION"
       - "website/**"
+      - ".github/workflows/release.yml"
       - ".github/workflows/site-ci.yml"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
