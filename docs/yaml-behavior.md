@@ -5,6 +5,9 @@ and serializes that value back to YAML. It does not edit or round-trip the
 original YAML syntax tree. A write can therefore preserve data while changing
 or removing presentation details.
 
+Empty or comment-only files are treated as empty mappings. Multiple YAML
+documents are rejected before processing or writing.
+
 ## What happens during a rewrite
 
 | YAML feature | Current behavior |

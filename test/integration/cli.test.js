@@ -309,6 +309,33 @@ alias: *defaults
   assert.equal(readFileSync(filePath, 'utf8'), source);
 });
 
+test('CLI preserves empty and comment-only YAML when encryption is a no-op', () => {
+  for (const source of ['', '# keep this comment\n']) {
+    const root = mkdtempSync(join(tmpdir(), 'yamlock-yaml-empty-'));
+    const filePath = join(root, 'config.yaml');
+    writeFileSync(filePath, source);
+
+    const result = runCli(['encrypt', filePath, '--key', KEY]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /No files were modified/);
+    assert.equal(readFileSync(filePath, 'utf8'), source);
+  }
+});
+
+test('CLI rejects multiple YAML documents without rewriting the source', () => {
+  const root = mkdtempSync(join(tmpdir(), 'yamlock-yaml-documents-'));
+  const filePath = join(root, 'config.yaml');
+  const source = 'public: value\n---\nprivate: secret-marker\n';
+  writeFileSync(filePath, source);
+
+  const result = runCli(['encrypt', filePath, '--key', KEY]);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /\[yamlock:ERR_READ_FAILED]/);
+  assert.match(result.stderr, /single document/i);
+  assert.doesNotMatch(result.stderr, /secret-marker/);
+  assert.equal(readFileSync(filePath, 'utf8'), source);
+});
+
 test('CLI rejects unknown custom YAML tags without rewriting the source', () => {
   const root = mkdtempSync(join(tmpdir(), 'yamlock-yaml-tag-'));
   const filePath = join(root, 'config.yaml');

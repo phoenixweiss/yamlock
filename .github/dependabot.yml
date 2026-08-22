@@ -21,6 +21,9 @@ updates:
       timezone: Europe/Moscow
     open-pull-requests-limit: 5
     groups:
-      root-dependencies:
+      root-minor-and-patch:
         patterns:
           - "*"
+        update-types:
+          - minor
+          - patch

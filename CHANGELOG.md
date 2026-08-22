@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file. Release ver
 
 ## [Unreleased]
 
+### Changed
+- Updated the development toolchain for Node.js 22+, added YAML single-document regressions, and limited grouped Dependabot updates to minor/patch releases so future runtime and major upgrades remain independently reviewable.
+
 ## [1.1.0] - 2026-08-14
 
 ### Added
