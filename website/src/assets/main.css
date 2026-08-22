@@ -238,7 +238,7 @@ h1 {
 .format-switch button {
   padding: 6px 9px;
   border: 0;
-  color: #6f6d77;
+  color: var(--muted);
   background: transparent;
   font-family: var(--mono);
   font-size: 10px;
@@ -776,7 +776,7 @@ h1 {
 footer {
   min-height: 84px;
   border-bottom: 0;
-  color: #68656f;
+  color: #85828d;
 }
 
 footer > span {

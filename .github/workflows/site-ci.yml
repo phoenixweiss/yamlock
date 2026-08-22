@@ -27,9 +27,9 @@ concurrency:
 
 jobs:
   website:
-    name: Lint and build
+    name: Quality and browser budgets
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: website
@@ -65,3 +65,35 @@ jobs:
 
       - name: Check website
         run: yarn run check
+
+      - name: Check browser behavior
+        run: yarn run test:browser
+
+      - name: Check Lighthouse budgets
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          chrome_path="$(
+            command -v google-chrome ||
+              command -v google-chrome-stable ||
+              true
+          )"
+
+          if [[ -z "$chrome_path" ]]; then
+            printf 'Google Chrome is not available on the runner.\n' >&2
+            exit 1
+          fi
+
+          CHROME_PATH="$chrome_path" yarn run lighthouse
+
+      - name: Upload browser report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: website-browser-report
+          path: |
+            website/playwright-report
+            website/test-results
+          if-no-files-found: ignore
+          retention-days: 7

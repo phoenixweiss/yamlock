@@ -8,12 +8,14 @@ All notable changes to this project will be documented in this file. Release ver
 - Initial English-only Vue/Vite project website centered on an interactive YAML/JSON encryption scanner, with release-aware content, clear local-processing boundaries, and responsive installation guidance.
 - Dedicated website CI and artifact-based GitHub Pages deployment with pinned actions, frozen Yarn installs, stable-release version checks, and minimum permissions.
 - GitHub Pages discovery and PWA metadata basics: canonical URLs, social previews, favicon, manifest, robots policy, sitemap, and build-time completeness checks.
+- Mobile and desktop Lighthouse budgets plus Playwright browser checks for responsive layout, keyboard controls, reduced motion, local-only behavior, and visual diagnostics.
 
 ### Changed
 - Updated the development toolchain for Node.js 22+, added YAML single-document regressions, and limited grouped Dependabot updates to minor/patch releases so future runtime and major upgrades remain independently reviewable.
 
 ### Fixed
 - Interactive scanner now starts at the plaintext boundary and reports direction-aware encrypt/decrypt progress during automated and manual movement.
+- Improved inactive format controls and footer text contrast to meet automated accessibility checks.
 
 ## [1.1.0] - 2026-08-14
 

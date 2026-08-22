@@ -16,7 +16,10 @@
     "format:check": "prettier --check .",
     "content:check": "node scripts/verify-content.mjs",
     "output:check": "node scripts/verify-output.mjs",
-    "check": "yarn run lint && yarn run format:check && yarn run content:check && yarn run build && yarn run output:check"
+    "test:browser": "playwright test",
+    "lighthouse": "node scripts/run-lighthouse.mjs",
+    "check": "yarn run lint && yarn run format:check && yarn run content:check && yarn run build && yarn run output:check",
+    "check:full": "yarn run check && yarn run test:browser && yarn run lighthouse"
   },
   "dependencies": {
     "@fontsource-variable/nunito-sans": "5.3.0",
@@ -25,10 +28,12 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.62.1",
     "@vitejs/plugin-vue": "6.0.8",
     "eslint": "10.9.0",
     "eslint-plugin-vue": "10.10.0",
     "globals": "17.11.0",
+    "lighthouse": "13.4.1",
     "prettier": "3.9.6",
     "vite": "8.2.0",
     "vue-eslint-parser": "10.4.1"

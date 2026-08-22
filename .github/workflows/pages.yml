@@ -77,7 +77,22 @@ jobs:
         run: yarn install --frozen-lockfile --non-interactive
 
       - name: Check website
-        run: yarn run check
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          chrome_path="$(
+            command -v google-chrome ||
+              command -v google-chrome-stable ||
+              true
+          )"
+
+          if [[ -z "$chrome_path" ]]; then
+            printf 'Google Chrome is not available on the runner.\n' >&2
+            exit 1
+          fi
+
+          CHROME_PATH="$chrome_path" yarn run check:full
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
