@@ -4,8 +4,14 @@ All notable changes to this project will be documented in this file. Release ver
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-08-31
+
 ### Security
-- Require `js-yaml` 4.3.2 or later within 4.x to bound YAML merge sequences and count empty merge sources toward the loader's work limit. Regression tests cover the accepted boundary and rejection without file writes or source disclosure.
+- Require `js-yaml` 4.3.2 or later within 4.x so empty merge sources count toward the YAML loader's total work limit.
+- Limit each YAML merge sequence to 100 source mappings. Regression tests verify the accepted boundary and rejection across encrypt/decrypt/migrate without file writes or source disclosure.
+
+### Changed
+- Updated the ESLint development dependency to 10.9.1. The Node.js 22+ runtime requirement and encrypted payload formats are unchanged.
 
 ## [1.1.1] - 2026-08-23
 
