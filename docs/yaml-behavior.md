@@ -8,6 +8,11 @@ or removing presentation details.
 Empty or comment-only files are treated as empty mappings. Multiple YAML
 documents are rejected before processing or writing.
 
+YAML merge sequences (`<<: [source1, source2, ...]`) are limited to 100 source
+mappings. The loader also limits total merge work across the document, counting
+empty source mappings as work. Inputs exceeding these limits are rejected before
+processing or writing; neither the source nor a separate output is modified.
+
 ## What happens during a rewrite
 
 | YAML feature | Current behavior |

@@ -8,6 +8,7 @@ import {
   mkdtempSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
   statSync,
   symlinkSync,
   writeFileSync
@@ -284,6 +285,66 @@ folded: >
   assert.deepEqual(parsed.flow, { enabled: true, values: ['one', 'two'] });
   assert.equal(parsed.explicit, '123');
   assert.equal(parsed.folded, 'folded value\n');
+});
+
+test('CLI round-trips YAML at the merge sequence limit', () => {
+  const root = mkdtempSync(join(tmpdir(), 'yamlock-yaml-merge-limit-'));
+  const filePath = join(root, 'config.yaml');
+  const sources = ['{ token: test-token, retries: 3 }', ...Array(99).fill('{}')];
+  const source = `service:\n  <<: [${sources.join(', ')}]\n`;
+  writeFileSync(filePath, source);
+
+  const encrypted = runCli(['encrypt', filePath, '--key', KEY, '--paths', 'service.token']);
+  assert.equal(encrypted.status, 0, encrypted.stderr);
+  const parsed = yaml.load(readFileSync(filePath, 'utf8'));
+  assert.match(parsed.service.token, /^yl\|2\|/);
+  assert.equal(parsed.service.retries, 3);
+
+  const decrypted = runCli(['decrypt', filePath, '--key', KEY, '--paths', 'service.token']);
+  assert.equal(decrypted.status, 0, decrypted.stderr);
+  assert.deepEqual(yaml.load(readFileSync(filePath, 'utf8')), {
+    service: { token: 'test-token', retries: 3 }
+  });
+});
+
+test('CLI rejects oversized YAML merge sequences without writes or source disclosure', () => {
+  const source = `service:\n  <<: [${Array(101).fill('{}').join(', ')}] # secret-marker\n`;
+
+  for (const command of ['encrypt', 'decrypt', 'migrate']) {
+    for (const mode of ['in-place', 'dry-run', 'new-output', 'existing-output']) {
+      const root = mkdtempSync(join(tmpdir(), 'yamlock-yaml-merge-error-'));
+      const filePath = join(root, 'config.yaml');
+      const outputPath = join(root, 'output.yaml');
+      const outputSource = '# preserve output\nvalue: test-output\n';
+      writeFileSync(filePath, source, { mode: 0o640 });
+      if (mode === 'existing-output') {
+        writeFileSync(outputPath, outputSource, { mode: 0o600 });
+      }
+      const originalStat = statSync(filePath);
+      const originalEntries = readdirSync(root).sort();
+      const args = [command, filePath, '--key', KEY];
+      if (mode === 'dry-run') args.push('--dry-run');
+      if (mode.endsWith('output')) args.push('--output', outputPath);
+
+      const result = runCli(args);
+      const context = `${command} / ${mode}`;
+      assert.equal(result.status, 1, context);
+      assert.match(result.stderr, /\[yamlock:ERR_READ_FAILED]/, context);
+      assert.match(result.stderr, /abnormal merge sequence size/i, context);
+      assert.doesNotMatch(result.stderr, /secret-marker/, context);
+      assert.equal(result.stdout, '', context);
+      assert.equal(readFileSync(filePath, 'utf8'), source, context);
+      assert.equal(statSync(filePath).ino, originalStat.ino, context);
+      assert.equal(statSync(filePath).mode & 0o777, 0o640, context);
+      assert.deepEqual(readdirSync(root).sort(), originalEntries, context);
+      if (mode === 'existing-output') {
+        assert.equal(readFileSync(outputPath, 'utf8'), outputSource, context);
+        assert.equal(statSync(outputPath).mode & 0o777, 0o600, context);
+      } else {
+        assert.equal(existsSync(outputPath), false, context);
+      }
+    }
+  }
 });
 
 test('CLI preserves raw YAML bytes when encryption is a no-op', () => {

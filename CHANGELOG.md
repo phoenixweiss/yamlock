@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file. Release ver
 
 ## [Unreleased]
 
+### Security
+- Require `js-yaml` 4.3.2 or later within 4.x to bound YAML merge sequences and count empty merge sources toward the loader's work limit. Regression tests cover the accepted boundary and rejection without file writes or source disclosure.
+
 ## [1.1.1] - 2026-08-23
 
 ### Added
