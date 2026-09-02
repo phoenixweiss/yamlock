@@ -55,7 +55,7 @@
   "bugs": {
     "url": "https://github.com/phoenixweiss/yamlock/issues"
   },
-  "homepage": "https://github.com/phoenixweiss/yamlock#readme",
+  "homepage": "https://phoenixweiss.github.io/yamlock/",
   "dependencies": {
     "js-yaml": "^4.3.2"
   },
