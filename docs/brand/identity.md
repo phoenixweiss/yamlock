@@ -54,8 +54,9 @@ outlined wordmark on its own dark surface so it remains legible in light and
 dark GitHub/npm themes.
 
 Terminal help uses the compact printable treatment `[yamlock]` followed by the
-anchor line `Plaintext ends here.`. Keep `yamlock version` machine-friendly and
-do not add the identity treatment to structured errors.
+anchor line `Plaintext ends here.`, with a blank line before and after the
+identity block. Keep `yamlock version` machine-friendly and do not add the
+identity treatment to structured errors.
 
 ### Symbol
 

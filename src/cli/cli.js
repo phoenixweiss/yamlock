@@ -20,8 +20,10 @@ import { listSupportedAlgorithms, TESTED_ALGORITHMS } from '../crypto/utils.js';
 const require = createRequire(import.meta.url);
 const packageJson = require('../../package.json');
 
-const BANNER = `[yamlock]
-Plaintext ends here.`;
+const BANNER = `
+[yamlock]
+Plaintext ends here.
+`;
 
 const KEYGEN_MIN_LENGTH = 1;
 const KEYGEN_MAX_LENGTH = 4096;
@@ -542,7 +544,7 @@ export async function runCli(argv = process.argv) {
   const { command, file, options } = parsed;
 
   if (!command || command === 'help') {
-    print(getHelpText().trim());
+    print(getHelpText().trimEnd());
     return exit(0);
   }
 
@@ -592,7 +594,7 @@ export async function runCli(argv = process.argv) {
   }
 
   if (!file) {
-    print(getHelpText().trim());
+    print(getHelpText().trimEnd());
     return fail('ERR_FILE_REQUIRED', 'A file path is required for this command.');
   }
 
@@ -688,7 +690,7 @@ export async function runCli(argv = process.argv) {
       return exit(0);
     }
 
-    print(getHelpText().trim());
+    print(getHelpText().trimEnd());
     return fail('ERR_UNKNOWN_COMMAND', `Unknown command: ${command}`);
   } catch (error) {
     const structuredCode = typeof error.code === 'string' && error.code.startsWith('ERR_')

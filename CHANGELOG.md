@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file. Release ver
 
 ## [Unreleased]
 
+### Changed
+
+- Added breathing room around the CLI identity block so it stays distinct from surrounding terminal output.
+
+### Fixed
+
+- Removed an outdated README statement that described the implemented path-pattern selectors as future work.
+
 ## [1.1.4] - 2026-09-03
 
 ### Changed
