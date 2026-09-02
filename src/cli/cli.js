@@ -20,10 +20,8 @@ import { listSupportedAlgorithms, TESTED_ALGORITHMS } from '../crypto/utils.js';
 const require = createRequire(import.meta.url);
 const packageJson = require('../../package.json');
 
-const BANNER = `
-░█░█░█▀█░█▄░▄█░█░░░█▀█░█▀▀░█░█░
-░░█░░█▀█░█░▀░█░█░░░█░█░█░░░█▀▄░
-░░▀░░▀░▀░▀░░░▀░▀▀▀░▀▀▀░▀▀▀░▀░▀░`;
+const BANNER = `[yamlock]
+Plaintext ends here.`;
 
 const KEYGEN_MIN_LENGTH = 1;
 const KEYGEN_MAX_LENGTH = 4096;

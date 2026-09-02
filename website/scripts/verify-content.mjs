@@ -95,4 +95,17 @@ if (!favicon.equals(brandSymbol)) {
   );
 }
 
+const wordmarkUrl = new URL("src/assets/yamlock-wordmark.svg", websiteRoot);
+const brandWordmarkUrl = new URL("yamlock-wordmark.svg", brandRoot);
+const [wordmark, brandWordmark] = await Promise.all([
+  readFile(wordmarkUrl),
+  readFile(brandWordmarkUrl),
+]);
+
+if (!wordmark.equals(brandWordmark)) {
+  throw new Error(
+    `${fileURLToPath(wordmarkUrl)} must match ${fileURLToPath(brandWordmarkUrl)}.`,
+  );
+}
+
 stdout.write("Website metadata and public files are consistent.\n");

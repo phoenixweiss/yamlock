@@ -1,4 +1,5 @@
 <script setup>
+import brandWordmarkUrl from "./assets/yamlock-wordmark.svg";
 import ConfigScanner from "./components/ConfigScanner.vue";
 import { content } from "./content/en.js";
 
@@ -10,7 +11,7 @@ const version = import.meta.env.YAMLOCK_VERSION;
 
   <header class="site-header">
     <a class="wordmark" href="/yamlock/">
-      <span aria-hidden="true">[</span>yamlock<span aria-hidden="true">]</span>
+      <img :src="brandWordmarkUrl" alt="yamlock" />
     </a>
     <span class="release">v{{ version }} / stable</span>
     <nav aria-label="Primary navigation">
@@ -125,7 +126,7 @@ const version = import.meta.env.YAMLOCK_VERSION;
 
   <footer>
     <a class="wordmark" href="/yamlock/">
-      <span aria-hidden="true">[</span>yamlock<span aria-hidden="true">]</span>
+      <img :src="brandWordmarkUrl" alt="yamlock" />
     </a>
     <span>MIT / phoenixweiss / v{{ version }}</span>
     <a href="https://github.com/phoenixweiss/yamlock">Source ↗</a>

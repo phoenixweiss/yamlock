@@ -93,17 +93,16 @@ footer {
 }
 
 .wordmark {
+  display: inline-flex;
   justify-self: start;
-  color: var(--paper);
-  font-size: 24px;
-  font-weight: 650;
-  letter-spacing: 0;
+  width: 135px;
   text-decoration: none;
-  text-transform: lowercase;
 }
 
-.wordmark span {
-  color: var(--violet-soft);
+.wordmark img {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .release {
@@ -892,7 +891,7 @@ footer > a:last-child {
   }
 
   .wordmark {
-    font-size: 21px;
+    width: 118px;
   }
 
   .hero {

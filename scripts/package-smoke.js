@@ -110,6 +110,8 @@ function main() {
       ['dist', 'cli', 'cli.js'],
       ['bin', 'yamlock'],
       ['docs', 'api.md'],
+      ['docs', 'brand', 'yamlock-readme-banner.svg'],
+      ['docs', 'brand', 'yamlock-wordmark.svg'],
       ['docs', 'errors.md'],
       ['examples', 'basic.js'],
       ['examples', 'docs', 'ci-cd.md'],
@@ -122,6 +124,10 @@ function main() {
         `Installed package is missing ${requiredPath.join('/')}.`
       );
     }
+    assert.match(
+      readFileSync(join(installedRoot, 'README.md'), 'utf8'),
+      /docs\/brand\/yamlock-readme-banner\.svg/
+    );
     for (const excludedPath of [
       '.bumpster',
       '.bumpsterrc',
@@ -269,6 +275,10 @@ function main() {
       cwd: projectDirectory,
       env: cliEnvironment
     });
+    assert.match(
+      helpResult.stdout,
+      /^\[yamlock\]\nPlaintext ends here\.\nVersion:/
+    );
     assert.match(helpResult.stdout, /Usage:\s+yamlock <command>/);
     assert.match(helpResult.stdout, /--path-patterns/);
 

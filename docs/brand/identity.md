@@ -47,8 +47,15 @@ The primary wordmark is the lowercase name enclosed in square brackets:
 - Do not add a padlock to the wordmark or replace either bracket with one.
 
 Use the outlined master at [yamlock-wordmark.svg](yamlock-wordmark.svg) when a
-portable asset is required. Live website text may use the same font and colors
-to remain accessible and responsive.
+portable asset is required. The website uses a byte-checked delivery copy in
+its header and footer. The README uses
+[yamlock-readme-banner.svg](yamlock-readme-banner.svg), which places the same
+outlined wordmark on its own dark surface so it remains legible in light and
+dark GitHub/npm themes.
+
+Terminal help uses the compact printable treatment `[yamlock]` followed by the
+anchor line `Plaintext ends here.`. Keep `yamlock version` machine-friendly and
+do not add the identity treatment to structured errors.
 
 ### Symbol
 
@@ -144,6 +151,7 @@ and `reviewable`. Use `magic` sparingly and only as personality copy.
 | -------------------------------------------------------- | -------------------------------------- | ----------------- |
 | [yamlock-symbol.svg](yamlock-symbol.svg)                 | Canonical square symbol                | Master            |
 | [yamlock-wordmark.svg](yamlock-wordmark.svg)             | Canonical outlined wordmark            | Master            |
+| [yamlock-readme-banner.svg](yamlock-readme-banner.svg)   | Theme-safe README banner               | Source            |
 | [yamlock-brand-sheet.svg](yamlock-brand-sheet.svg)       | Visual reference sheet                 | Source            |
 | [yamlock-brand-sheet.png](yamlock-brand-sheet.png)       | Review-friendly reference              | Generated preview |
 | [yamlock-social-card.svg](yamlock-social-card.svg)       | Editable 1200 x 630 social-card master | Source            |
@@ -151,6 +159,7 @@ and `reviewable`. Use `magic` sparingly and only as personality copy.
 | [yamlock-github-preview.png](yamlock-github-preview.png) | 1280 x 640 repository preview          | Generated preview |
 | `website/public/favicon.svg`                             | Website delivery copy                  | In use            |
 | `website/public/og.png`                                  | Website Open Graph delivery copy       | In use            |
+| `website/src/assets/yamlock-wordmark.svg`                | Website wordmark delivery copy         | In use            |
 
 The brand masters live in `docs/brand/`. Product directories may contain
 delivery copies sized or packaged for that product, but their geometry and

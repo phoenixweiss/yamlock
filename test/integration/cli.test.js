@@ -876,6 +876,10 @@ test('CLI help aliases succeed and warn about YAML rewrite normalization', () =>
   for (const args of [[], ['help'], ['-h'], ['--help']]) {
     const result = runCli(args);
     assert.equal(result.status, 0, result.stderr);
+    assert.match(
+      result.stdout,
+      /^\[yamlock\]\nPlaintext ends here\.\nVersion:/
+    );
     assert.match(result.stdout, /YAML rewrite note:/);
     assert.match(result.stdout, /not\s+preserved byte-for-byte/);
     assert.match(result.stdout, /--dry-run or --output/);

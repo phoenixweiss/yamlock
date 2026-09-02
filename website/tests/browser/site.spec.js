@@ -18,6 +18,8 @@ test("renders a coherent desktop and mobile layout", async ({
   await expect(
     page.getByRole("heading", { level: 1, name: /Plaintext\s+ends here\./ }),
   ).toBeVisible();
+  await expect(page.locator('img[alt="yamlock"]')).toHaveCount(2);
+  await expect(page.locator('img[alt="yamlock"]').first()).toBeVisible();
   await expect(page.locator(".scanner")).toBeVisible();
   await expect(
     page.getByRole("heading", { name: /One package/ }),
