@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 5400 1000" role="img" aria-labelledby="title description">
+  <title id="title">yamlock wordmark</title>
+  <desc id="description">The lowercase name yamlock enclosed in violet square brackets.</desc>
+  <metadata>
+    Primary wordmark. IBM Plex Mono 5.2.7 Medium (500) converted to outlines.
+    Advance width: 600 units per glyph. Letters: #dedbd4. Brackets: #b8a7ff.
+  </metadata>
+
+  <defs>
+    <path id="bracket-left" d="M207 -138V760H506V682H297V-60H506V-138Z"/>
+    <path id="glyph-y" d="M451 516H561L311 -100Q291 -150 258.5 -175Q226 -200 165 -200H78V-112H200L247 7L39 516H153L235 300L299 123H305L369 300Z"/>
+    <path id="glyph-a" d="M492 0Q445 0 421.5 24Q398 48 393 87H388Q373 40 333.5 14Q294 -12 233 -12Q154 -12 107 29.5Q60 71 60 144Q60 219 115.5 258.5Q171 298 286 298H385V338Q385 443 274 443Q224 443 193 423.5Q162 404 141 372L76 425Q98 467 150 497.5Q202 528 284 528Q382 528 438 481Q494 434 494 345V86H559V0ZM264 68Q317 68 351 92Q385 116 385 154V229H288Q170 229 170 158V138Q170 103 195 85.5Q220 68 264 68Z"/>
+    <path id="glyph-m" d="M44 0V516H137V449H142Q154 482 176.5 505Q199 528 241 528Q282 528 304.5 505.5Q327 483 333 444H337Q351 479 376 503.5Q401 528 448 528Q508 528 531.5 486Q555 444 555 363V0H462V349Q462 403 449 423.5Q436 444 407 444Q381 444 363.5 426.5Q346 409 346 374V0H253V349Q253 403 240.5 423.5Q228 444 199 444Q172 444 154.5 426.5Q137 409 137 374V0Z"/>
+    <path id="glyph-l" d="M75 88H246V652H75V740H355V88H526V0H75Z"/>
+    <path id="glyph-o" d="M300 -12Q243 -12 197.5 7Q152 26 120.5 61Q89 96 72 146Q55 196 55 258Q55 320 72 370Q89 420 120.5 455Q152 490 197.5 509Q243 528 300 528Q357 528 402.5 509Q448 490 479.5 455Q511 420 528 370Q545 320 545 258Q545 196 528 146Q511 96 479.5 61Q448 26 402.5 7Q357 -12 300 -12ZM300 74Q360 74 395.5 110.5Q431 147 431 219V297Q431 369 395.5 405.5Q360 442 300 442Q240 442 204.5 405.5Q169 369 169 297V219Q169 147 204.5 110.5Q240 74 300 74Z"/>
+    <path id="glyph-c" d="M319 -12Q261 -12 215.5 7Q170 26 138.5 61Q107 96 90.5 146Q74 196 74 258Q74 320 90.5 370Q107 420 138.5 455Q170 490 215.5 509Q261 528 318 528Q398 528 446.5 494Q495 460 519 406L434 360Q420 396 391.5 417Q363 438 318 438Q256 438 222 400.5Q188 363 188 301V215Q188 154 222 116Q256 78 320 78Q368 78 398.5 100Q429 122 447 160L527 111Q502 57 451 22.5Q400 -12 319 -12Z"/>
+    <path id="glyph-k" d="M88 740H197V293H202L283 376L428 516H557L348 313L580 0H449L269 251L197 184V0H88Z"/>
+    <path id="bracket-right" d="M393 760V-138H94V-60H303V682H94V760Z"/>
+  </defs>
+
+  <g transform="translate(0 780) scale(1 -1)">
+    <g fill="#b8a7ff">
+      <use href="#bracket-left"/>
+      <use href="#bracket-right" transform="translate(4800)"/>
+    </g>
+    <g fill="#dedbd4">
+      <use href="#glyph-y" transform="translate(600)"/>
+      <use href="#glyph-a" transform="translate(1200)"/>
+      <use href="#glyph-m" transform="translate(1800)"/>
+      <use href="#glyph-l" transform="translate(2400)"/>
+      <use href="#glyph-o" transform="translate(3000)"/>
+      <use href="#glyph-c" transform="translate(3600)"/>
+      <use href="#glyph-k" transform="translate(4200)"/>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-labelledby="title description">
+  <title id="title">yamlock brand reference sheet</title>
+  <desc id="description">The approved yamlock symbol, wordmark, palette and basic usage guidance on a dark grid.</desc>
+  <metadata>
+    Review sheet only. Canonical assets are yamlock-symbol.svg and yamlock-wordmark.svg.
+  </metadata>
+
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#32313c" stroke-opacity="0.28"/>
+    </pattern>
+  </defs>
+
+  <rect width="1600" height="1000" fill="#07070a"/>
+  <rect width="1600" height="1000" fill="url(#grid)"/>
+
+  <g font-family="IBM Plex Mono, monospace" font-size="18" letter-spacing="2" text-transform="uppercase">
+    <text x="72" y="72" fill="#b8a7ff">YAMLOCK / BRAND SYSTEM 01</text>
+    <text x="1528" y="72" fill="#8b8994" text-anchor="end">SEALED SYNTAX</text>
+  </g>
+
+  <line x1="72" y1="104" x2="1528" y2="104" stroke="#32313c"/>
+
+  <image href="yamlock-symbol.svg" x="72" y="170" width="260" height="260"/>
+  <image href="yamlock-wordmark.svg" x="404" y="205" width="1020" height="189"/>
+
+  <g font-family="IBM Plex Mono, monospace" font-size="14" letter-spacing="1.25">
+    <text x="72" y="470" fill="#8b8994">SYMBOL / SMALL CONTEXTS</text>
+    <text x="440" y="470" fill="#8b8994">PRIMARY WORDMARK / IBM PLEX MONO 500</text>
+  </g>
+
+  <line x1="72" y1="524" x2="1528" y2="524" stroke="#32313c"/>
+
+  <g font-family="Nunito Sans, sans-serif">
+    <text x="72" y="600" fill="#dedbd4" font-size="54" font-weight="600">The file stays recognizable.</text>
+    <text x="72" y="660" fill="#b8a7ff" font-size="54" font-weight="600">The sensitive values do not.</text>
+  </g>
+  <text x="72" y="714" fill="#8b8994" font-family="IBM Plex Mono, monospace" font-size="16" letter-spacing="1.2">PRECISE / LOCAL / AUTHENTICATED / REVIEWABLE</text>
+
+  <g transform="translate(72 786)">
+    <g transform="translate(0)">
+      <rect width="160" height="92" fill="#07070a" stroke="#32313c"/>
+      <text x="0" y="122" fill="#8b8994" font-family="IBM Plex Mono, monospace" font-size="14">BLACK</text>
+      <text x="0" y="145" fill="#dedbd4" font-family="IBM Plex Mono, monospace" font-size="14">#07070a</text>
+    </g>
+    <g transform="translate(184)">
+      <rect width="160" height="92" fill="#0c0c11" stroke="#32313c"/>
+      <text x="0" y="122" fill="#8b8994" font-family="IBM Plex Mono, monospace" font-size="14">PANEL</text>
+      <text x="0" y="145" fill="#dedbd4" font-family="IBM Plex Mono, monospace" font-size="14">#0c0c11</text>
+    </g>
+    <g transform="translate(368)">
+      <rect width="160" height="92" fill="#dedbd4"/>
+      <text x="0" y="122" fill="#8b8994" font-family="IBM Plex Mono, monospace" font-size="14">PAPER</text>
+      <text x="0" y="145" fill="#dedbd4" font-family="IBM Plex Mono, monospace" font-size="14">#dedbd4</text>
+    </g>
+    <g transform="translate(552)">
+      <rect width="160" height="92" fill="#b8a7ff"/>
+      <text x="0" y="122" fill="#8b8994" font-family="IBM Plex Mono, monospace" font-size="14">VIOLET SOFT</text>
+      <text x="0" y="145" fill="#dedbd4" font-family="IBM Plex Mono, monospace" font-size="14">#b8a7ff</text>
+    </g>
+    <g transform="translate(736)">
+      <rect width="160" height="92" fill="#8b6cff"/>
+      <text x="0" y="122" fill="#8b8994" font-family="IBM Plex Mono, monospace" font-size="14">VIOLET</text>
+      <text x="0" y="145" fill="#dedbd4" font-family="IBM Plex Mono, monospace" font-size="14">#8b6cff</text>
+    </g>
+    <g transform="translate(920)">
+      <rect width="160" height="92" fill="#73e7ff"/>
+      <text x="0" y="122" fill="#8b8994" font-family="IBM Plex Mono, monospace" font-size="14">CYAN</text>
+      <text x="0" y="145" fill="#dedbd4" font-family="IBM Plex Mono, monospace" font-size="14">#73e7ff</text>
+    </g>
+    <g transform="translate(1104)">
+      <rect width="160" height="92" fill="#ff637d"/>
+      <text x="0" y="122" fill="#8b8994" font-family="IBM Plex Mono, monospace" font-size="14">CORAL</text>
+      <text x="0" y="145" fill="#dedbd4" font-family="IBM Plex Mono, monospace" font-size="14">#ff637d</text>
+    </g>
+    <g transform="translate(1288)">
+      <rect width="160" height="92" fill="#32313c"/>
+      <text x="0" y="122" fill="#8b8994" font-family="IBM Plex Mono, monospace" font-size="14">LINE</text>
+      <text x="0" y="145" fill="#dedbd4" font-family="IBM Plex Mono, monospace" font-size="14">#32313c</text>
+    </g>
+  </g>
+</svg>

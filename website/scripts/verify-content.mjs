@@ -4,6 +4,7 @@ import { fileURLToPath, URL } from "node:url";
 
 const websiteRoot = new URL("../", import.meta.url);
 const publicRoot = new URL("../public/", import.meta.url);
+const brandRoot = new URL("../../docs/brand/", import.meta.url);
 const siteUrl = "https://phoenixweiss.github.io/yamlock/";
 
 async function read(relativeUrl) {
@@ -69,6 +70,28 @@ if (
 ) {
   throw new Error(
     `${fileURLToPath(socialPreviewUrl)} must be a 1200x630 PNG image.`,
+  );
+}
+
+const brandSocialPreviewUrl = new URL("yamlock-social-card.png", brandRoot);
+const brandSocialPreview = await readFile(brandSocialPreviewUrl);
+
+if (!socialPreview.equals(brandSocialPreview)) {
+  throw new Error(
+    `${fileURLToPath(socialPreviewUrl)} must match ${fileURLToPath(brandSocialPreviewUrl)}.`,
+  );
+}
+
+const faviconUrl = new URL("favicon.svg", publicRoot);
+const brandSymbolUrl = new URL("yamlock-symbol.svg", brandRoot);
+const [favicon, brandSymbol] = await Promise.all([
+  readFile(faviconUrl),
+  readFile(brandSymbolUrl),
+]);
+
+if (!favicon.equals(brandSymbol)) {
+  throw new Error(
+    `${fileURLToPath(faviconUrl)} must match ${fileURLToPath(brandSymbolUrl)}.`,
   );
 }
 
