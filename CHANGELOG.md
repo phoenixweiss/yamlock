@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file. Release ver
 
 ## [Unreleased]
 
+## [1.1.4] - 2026-09-03
+
 ### Changed
 
 - Integrated the canonical wordmark into the README and website chrome, and replaced the legacy CLI banner with the compact terminal identity.
