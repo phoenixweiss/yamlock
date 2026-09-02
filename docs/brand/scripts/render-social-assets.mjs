@@ -31,11 +31,11 @@ try {
     }
   });
   await page.goto(sourceUrl);
-  await page.evaluate(() => document.fonts.ready);
+  await page.evaluate(() => globalThis.document.fonts.ready);
   const fontsLoaded = await page.evaluate(
     () =>
-      document.fonts.check('700 108px "Nunito Sans Brand"') &&
-      document.fonts.check('500 17px "IBM Plex Mono Brand"'),
+      globalThis.document.fonts.check('700 108px "Nunito Sans Brand"') &&
+      globalThis.document.fonts.check('500 17px "IBM Plex Mono Brand"'),
   );
 
   if (!fontsLoaded) {
@@ -53,7 +53,12 @@ try {
 
   await page.setViewportSize({ width: 1280, height: 640 });
   await page.evaluate(() => {
-    const source = document.querySelector("svg");
+    const source = globalThis.document.querySelector("svg");
+
+    if (!source) {
+      throw new Error("Social card SVG is missing");
+    }
+
     source.style.width = "1280px";
     source.style.height = "672px";
     source.style.display = "block";
