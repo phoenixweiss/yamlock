@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file. Release ver
 
 ## [Unreleased]
 
+## [1.1.5] - 2026-09-03
+
 ### Changed
 
 - Added breathing room around the CLI identity block so it stays distinct from surrounding terminal output.
