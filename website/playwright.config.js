@@ -2,7 +2,8 @@ import { env } from "node:process";
 
 import { defineConfig } from "@playwright/test";
 
-const appUrl = "http://127.0.0.1:4173/yamlock/";
+const appPort = env.YAMLOCK_PREVIEW_PORT ?? "4173";
+const appUrl = `http://127.0.0.1:${appPort}/yamlock/`;
 const isCi = Boolean(env.CI);
 
 export default defineConfig({
@@ -30,6 +31,12 @@ export default defineConfig({
       },
     },
     {
+      name: "wide-desktop",
+      use: {
+        viewport: { width: 1920, height: 1080 },
+      },
+    },
+    {
       name: "mobile",
       use: {
         hasTouch: true,
@@ -39,7 +46,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "yarn preview --host 127.0.0.1 --port 4173",
+    command: `yarn preview --host 127.0.0.1 --port ${appPort}`,
     url: appUrl,
     reuseExistingServer: !isCi,
   },

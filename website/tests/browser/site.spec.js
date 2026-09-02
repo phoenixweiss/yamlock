@@ -1,8 +1,9 @@
 import { URL } from "node:url";
+import { env } from "node:process";
 
 import { expect, test } from "@playwright/test";
 
-const localOrigin = "http://127.0.0.1:4173";
+const localOrigin = `http://127.0.0.1:${env.YAMLOCK_PREVIEW_PORT ?? "4173"}`;
 
 async function loadSite(page) {
   await page.goto("./");
@@ -47,14 +48,50 @@ test("renders a coherent desktop and mobile layout", async ({
   expect(layout.scanner.left).toBeGreaterThanOrEqual(0);
   expect(layout.scanner.right).toBeLessThanOrEqual(layout.viewportWidth);
 
-  if (testInfo.project.name === "desktop") {
-    expect(layout.scanner.left).toBeGreaterThan(layout.heroCopy.left);
-  } else {
+  if (testInfo.project.name === "mobile") {
     expect(layout.scanner.top).toBeGreaterThan(layout.heroCopy.bottom);
+  } else {
+    expect(layout.scanner.left).toBeGreaterThan(layout.heroCopy.left);
   }
 
   await testInfo.attach(`yamlock-${testInfo.project.name}.png`, {
     body: await page.screenshot({ animations: "disabled", fullPage: true }),
+    contentType: "image/png",
+  });
+});
+
+test("keeps the wide desktop hero composition cohesive", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "wide-desktop");
+
+  await loadSite(page);
+
+  const layout = await page.evaluate(() => {
+    const scanner = document.querySelector(".scanner").getBoundingClientRect();
+    const heroCopy = document
+      .querySelector(".hero-copy")
+      .getBoundingClientRect();
+    const heroLead = document
+      .querySelector(".hero-lead")
+      .getBoundingClientRect();
+
+    return {
+      viewportWidth: document.documentElement.clientWidth,
+      copyInset: heroCopy.left,
+      scannerInset: document.documentElement.clientWidth - scanner.right,
+      contentGap: scanner.left - heroLead.right,
+    };
+  });
+
+  expect(layout.contentGap).toBeGreaterThanOrEqual(52);
+  expect(layout.contentGap).toBeLessThanOrEqual(260);
+  expect(Math.abs(layout.copyInset - layout.scannerInset)).toBeLessThanOrEqual(
+    2,
+  );
+
+  await testInfo.attach("yamlock-wide-desktop-hero.png", {
+    body: await page.screenshot({ animations: "disabled", fullPage: false }),
     contentType: "image/png",
   });
 });

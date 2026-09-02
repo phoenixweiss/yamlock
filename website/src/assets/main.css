@@ -128,9 +128,10 @@ footer {
 .hero {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(380px, 1fr) minmax(460px, 510px);
-  gap: 5vw;
+  grid-template-columns: minmax(380px, 640px) minmax(460px, 510px);
+  column-gap: clamp(52px, 6vw, 104px);
   align-items: center;
+  justify-content: center;
   min-height: 100svh;
   padding: 118px 4vw 68px;
   overflow: hidden;
