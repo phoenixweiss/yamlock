@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file. Release ver
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-09-03
+
+### Added
+- Brand identity documentation with canonical SVG masters for the yamlock symbol and outlined wordmark, plus reproducible brand-sheet and social-card assets.
+- A 1920×1080 browser project and layout regression that keep the wide-screen hero composition within explicit spacing and alignment bounds.
+
+### Changed
+- Aligned the website favicon and Open Graph image with the canonical brand masters, with content checks that prevent delivery copies from drifting from their sources.
+- Pointed npm package homepage metadata to the yamlock project website.
+- Made the Playwright preview port configurable so local browser checks can run in isolation from other development servers.
+
+### Fixed
+- Constrained and centered the desktop hero columns so the copy and interactive scanner remain visually connected on wide displays.
+
 ## [1.1.2] - 2026-08-31
 
 ### Security
