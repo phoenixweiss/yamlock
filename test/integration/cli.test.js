@@ -878,7 +878,7 @@ test('CLI help aliases succeed and warn about YAML rewrite normalization', () =>
     assert.equal(result.status, 0, result.stderr);
     assert.match(
       result.stdout,
-      /^\n\[yamlock\]\nPlaintext ends here\.\n\nVersion:/
+      /^\n\[yamlock\]\n\nPlaintext ends here\.\n\nVersion:/
     );
     assert.match(result.stdout, /YAML rewrite note:/);
     assert.match(result.stdout, /not\s+preserved byte-for-byte/);

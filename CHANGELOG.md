@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file. Release ver
 
 ## [Unreleased]
 
+### Fixed
+
+- Separated the CLI wordmark from its anchor line so the terminal identity remains readable at a glance.
+
 ## [1.1.5] - 2026-09-03
 
 ### Changed

@@ -277,7 +277,7 @@ function main() {
     });
     assert.match(
       helpResult.stdout,
-      /^\n\[yamlock\]\nPlaintext ends here\.\n\nVersion:/
+      /^\n\[yamlock\]\n\nPlaintext ends here\.\n\nVersion:/
     );
     assert.match(helpResult.stdout, /Usage:\s+yamlock <command>/);
     assert.match(helpResult.stdout, /--path-patterns/);

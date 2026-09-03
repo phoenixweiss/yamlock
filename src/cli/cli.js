@@ -22,6 +22,7 @@ const packageJson = require('../../package.json');
 
 const BANNER = `
 [yamlock]
+
 Plaintext ends here.
 `;
 
