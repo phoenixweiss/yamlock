@@ -1,0 +1,3 @@
+VERSION text eol=lf
+website/VERSION text eol=lf
+.bumpster/hooks/* text eol=lf

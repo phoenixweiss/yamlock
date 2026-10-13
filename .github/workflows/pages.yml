@@ -1,15 +1,13 @@
 name: Website deployment
 
 on:
-  workflow_run:
-    workflows:
-      - Release
-    types:
-      - completed
+  push:
+    tags:
+      - "website/v*.*.*"
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Published stable release tag to deploy (v1.0.0 or newer)
+        description: Website release tag to deploy (website/vMAJOR.MINOR.PATCH)
         required: true
         type: string
 
@@ -22,12 +20,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build release website
-    if: >-
-      ${{
-        github.event_name == 'workflow_dispatch' ||
-        github.event.workflow_run.conclusion == 'success'
-      }}
+    name: Build website release
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -39,12 +32,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          ref: >-
-            ${{
-              github.event_name == 'workflow_run' &&
-              github.event.workflow_run.head_sha ||
-              inputs.release_tag
-            }}
+          ref: ${{ github.event_name == 'push' && github.ref || inputs.release_tag }}
 
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -53,96 +41,11 @@ jobs:
           cache: yarn
           cache-dependency-path: website/yarn.lock
 
-      - name: Validate published release
-        id: release
-        shell: bash
+      - name: Validate website release
         env:
-          AUTOMATIC_DEPLOY: ${{ github.event_name == 'workflow_run' }}
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_COMMIT: ${{ github.event.workflow_run.head_sha || '' }}
-          RELEASE_TAG: >-
-            ${{
-              github.event_name == 'workflow_run' &&
-              github.event.workflow_run.head_branch ||
-              inputs.release_tag
-            }}
-          WORKFLOW_EVENT: ${{ github.event.workflow_run.event || '' }}
-        working-directory: .
-        run: |
-          set -euo pipefail
-
-          if [[ "$AUTOMATIC_DEPLOY" == "true" && "$WORKFLOW_EVENT" != "push" ]]; then
-            printf 'Automatic deployment requires a completed tag push workflow.\n' >&2
-            exit 1
-          fi
-
-          if [[ ! "$RELEASE_TAG" =~ ^v([1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-            printf 'Expected a stable release tag v1.0.0 or newer.\n' >&2
-            exit 1
-          fi
-
-          version="${RELEASE_TAG#v}"
-          node scripts/release-check.js --tag "$RELEASE_TAG"
-
-          release_commit="$(git rev-parse HEAD)"
-          tag_commit="$(git rev-parse "$RELEASE_TAG^{commit}")"
-
-          if [[ "$tag_commit" != "$release_commit" ]]; then
-            printf 'Release tag %s does not point to checked out commit %s.\n' \
-              "$RELEASE_TAG" \
-              "$release_commit" >&2
-            exit 1
-          fi
-
-          if [[ -n "$RELEASE_COMMIT" && "$RELEASE_COMMIT" != "$release_commit" ]]; then
-            printf 'Release workflow commit %s does not match checked out commit %s.\n' \
-              "$RELEASE_COMMIT" \
-              "$release_commit" >&2
-            exit 1
-          fi
-
-          git fetch --no-tags origin main:refs/remotes/origin/main
-          main_commit="$(git rev-parse refs/remotes/origin/main)"
-
-          if [[ "$release_commit" != "$main_commit" ]]; then
-            printf 'Release commit %s does not match origin/main %s.\n' \
-              "$release_commit" \
-              "$main_commit" >&2
-            exit 1
-          fi
-
-          gh api \
-            "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" \
-            > "$RUNNER_TEMP/pages-release.json"
-
-          latest_release_id="$(
-            gh api \
-              "repos/$GITHUB_REPOSITORY/releases/latest" \
-              --jq '.id'
-          )"
-
-          jq -e \
-            --arg commit "$release_commit" \
-            --argjson latest_id "$latest_release_id" \
-            --arg tag "$RELEASE_TAG" \
-            --arg version "$version" \
-            '
-              .id == $latest_id and
-              .draft == false and
-              .prerelease == false and
-              .tag_name == $tag and
-              .target_commitish == $commit and
-              .name == ("yamlock " + $version) and
-              (.body | length) > 0 and
-              (.assets | length) == 0
-            ' \
-            "$RUNNER_TEMP/pages-release.json" >/dev/null
-
-          {
-            printf 'tag=%s\n' "$RELEASE_TAG"
-            printf 'version=%s\n' "$version"
-            printf 'commit=%s\n' "$release_commit"
-          } >> "$GITHUB_OUTPUT"
+          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}
+          RELEASE_COMMIT: ${{ github.event_name == 'push' && github.sha || '' }}
+        run: node scripts/validate-release.mjs "$RELEASE_TAG" "$RELEASE_COMMIT" main
 
       - name: Verify Yarn Classic
         shell: bash

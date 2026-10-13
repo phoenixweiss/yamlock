@@ -7,7 +7,7 @@ Thanks for your interest in improving yamlock! This document describes how to se
 - Node.js 22.x (via `asdf install nodejs 22`)
 - Yarn Classic 1.22.22
 - macOS or Linux environment (CLI integration tests spawn subprocesses)
-- Bumpster 1.2.0 or newer for maintainer release operations
+- Bumpster 1.3.0 or newer for maintainer release operations
 
 ## Local development
 
@@ -78,5 +78,42 @@ releases starting with `v1.0.0` use `vX.Y.Z` tags.
 7. Wait for the exact tag's Release workflow and public GitHub Release to pass.
 8. After separate publication approval, publish from the verified release
    commit and confirm the npm dist-tag, registry installation, CLI, and API.
+
+## Independent website releases
+
+The CLI/npm package keeps root `VERSION`, root `package.json`, `CHANGELOG.md`,
+and `vX.Y.Z` tags. Website releases use `.bumpster/packages/website.json`,
+`website/VERSION`, `website/package.json`, `website/CHANGELOG.md`, and
+`website/vX.Y.Z` tags. Both targets retain the `dev` → `main` → `dev` flow;
+`main` contains releases of either component, so its HEAD may be newer than
+the latest CLI tag. Publishing a website does not publish an npm package or
+create a GitHub Release. CLI tags no longer trigger Pages.
+
+The website starts at its existing manifest version `0.0.0`. This baseline
+does not create a release. Its footer continues to show the documented CLI
+version; `version.json` exposes both `cli` and `website` versions.
+
+Before the first independent deployment, allow tags matching `website/v*`
+in the repository's `github-pages` environment deployment rules. Keep the
+existing branch rules; Pages still validates the selected tag and main ancestry.
+
+1. Finalize a dated target section in `website/CHANGELOG.md` and commit the
+   website changes on `dev`.
+2. Use Node.js 24 and Yarn Classic 1.22.22. From `website/`, run
+   `yarn release:check --next-version X.Y.Z` and `yarn check:full`.
+3. From the repository root, inspect `bumpster --package website --status`.
+   After release approval, run `bumpster --package website --patch` (or
+   `--minor` / `--major`). The project hook validates the selected profile,
+   repeats website checks, and preserves the CLI version.
+4. Bumpster atomically publishes `dev`, `main`, and the annotated website tag.
+   Pages validates the tag's versions, bump commit, remote tag identity and
+   ancestry on `origin/main`, then runs the full website checks and deploys.
+5. Verify the deployed `version.json` and the displayed CLI version. Manual
+   Pages recovery accepts the same published annotated website tags, including
+   older tags whose commits remain ancestors of `origin/main`.
+
+Shared brand/content files must be reviewed for effects on both components.
+Independent versions do not isolate Git history: review all commits being
+promoted from `dev` to `main` before either release.
 
 Thank you for helping make yamlock better!

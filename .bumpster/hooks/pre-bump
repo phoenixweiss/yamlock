@@ -8,24 +8,46 @@ cd "$project_root"
 : "${BUMPSTER_NEW_VERSION:?Bumpster did not provide the new version.}"
 : "${BUMPSTER_RELEASE_TYPE:?Bumpster did not provide the release type.}"
 
-current_version="$(tr -d '[:space:]' < VERSION)"
+case "${BUMPSTER_PACKAGE:-}" in
+  "") version_file="VERSION" ;;
+  website)
+    version_file="website/VERSION"
+    if [[ "${BUMPSTER_VERSION_FILE:-}" != "$version_file" || "${BUMPSTER_PACKAGE_JSON:-}" != "website/package.json" ]]; then
+      printf 'Unexpected website release profile.\n' >&2
+      exit 1
+    fi
+    ;;
+  *) printf 'Unsupported Bumpster package: %s\n' "$BUMPSTER_PACKAGE" >&2; exit 1 ;;
+esac
+
+current_version="$(tr -d '[:space:]' < "$version_file")"
 if [[ "$current_version" != "$BUMPSTER_PREV_VERSION" ]]; then
-  printf 'VERSION is %s, expected Bumpster previous version %s.\n' \
-    "$current_version" "$BUMPSTER_PREV_VERSION" >&2
+  printf '%s is %s, expected Bumpster previous version %s.\n' \
+    "$version_file" "$current_version" "$BUMPSTER_PREV_VERSION" >&2
   exit 1
 fi
 
 printf 'Running yamlock pre-bump checks for %s -> %s (%s).\n' \
   "$BUMPSTER_PREV_VERSION" "$BUMPSTER_NEW_VERSION" "$BUMPSTER_RELEASE_TYPE"
 
-yarn install --frozen-lockfile
-yarn check:release --next-version "$BUMPSTER_NEW_VERSION"
-yarn lint
-yarn check:docs
-yarn test:coverage
-yarn test:types
-yarn test:package
-yarn audit
+if [[ "${BUMPSTER_PACKAGE:-}" == "website" ]]; then
+  node scripts/release-check.js
+  cd website
+  yarn install --frozen-lockfile
+  yarn release:check --next-version "$BUMPSTER_NEW_VERSION"
+  yarn check:full
+  yarn audit
+  cd "$project_root"
+else
+  yarn install --frozen-lockfile
+  yarn check:release --next-version "$BUMPSTER_NEW_VERSION"
+  yarn lint
+  yarn check:docs
+  yarn test:coverage
+  yarn test:types
+  yarn test:package
+  yarn audit
+fi
 git diff --check
 
 if [[ -n "$(git status --short)" ]]; then

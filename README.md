@@ -393,6 +393,10 @@ default v2 writer for new data.
   `VERSION` file and `package.json` synchronized while publishing the `dev`,
   `main`, and `vX.Y.Z` Git refs atomically. Each stable tag must pass the full
   CI and package preflight before its GitHub Release is published.
+- The website is released independently with Bumpster `--package website`
+  and `website/vX.Y.Z` tags. Its `version.json` records both the website version
+  and the CLI version documented by the site; see
+  [the website release process](CONTRIBUTING.md#independent-website-releases).
 
 ### Encrypted value formats
 

@@ -1,6 +1,8 @@
 import { lstat, readFile, readdir } from "node:fs/promises";
 import { stdout } from "node:process";
 import { fileURLToPath, URL } from "node:url";
+import assert from "node:assert/strict";
+import { readWebsiteState, validateWebsiteState } from "./release-check.mjs";
 
 const distRoot = new URL("../dist/", import.meta.url);
 const requiredFiles = [
@@ -10,6 +12,7 @@ const requiredFiles = [
   "robots.txt",
   "site.webmanifest",
   "sitemap.xml",
+  "version.json",
 ];
 
 for (const filename of requiredFiles) {
@@ -44,8 +47,31 @@ async function rejectSymlinks(directoryUrl) {
 
 await rejectSymlinks(distRoot);
 
+const websiteState = readWebsiteState();
+validateWebsiteState(websiteState);
+const cliVersion = (
+  await readFile(new URL("../../VERSION", import.meta.url), "utf8")
+).trim();
+const versions = JSON.parse(
+  await readFile(new URL("version.json", distRoot), "utf8"),
+);
+assert.deepEqual(versions, { cli: cliVersion, website: websiteState.version });
+
 const indexUrl = new URL("index.html", distRoot);
 const indexHtml = await readFile(indexUrl, "utf8");
+const scriptPath = indexHtml.match(/<script[^>]+src="([^"]+\.js)"/)?.[1];
+assert.ok(
+  scriptPath?.startsWith("/yamlock/assets/"),
+  "Missing website entry script.",
+);
+const script = await readFile(
+  new URL(scriptPath.slice("/yamlock/".length), distRoot),
+  "utf8",
+);
+assert.ok(
+  script.includes(cliVersion),
+  "Built page must identify the documented CLI version.",
+);
 
 for (const expected of [
   "/yamlock/assets/",

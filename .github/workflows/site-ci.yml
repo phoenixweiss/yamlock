@@ -6,6 +6,9 @@ on:
     paths:
       - "VERSION"
       - "website/**"
+      - ".bumpster/packages/website.json"
+      - ".bumpster/hooks/pre-bump"
+      - ".github/dependabot.yml"
       - ".github/workflows/release.yml"
       - ".github/workflows/site-ci.yml"
       - ".github/workflows/pages.yml"
@@ -16,6 +19,9 @@ on:
     paths:
       - "VERSION"
       - "website/**"
+      - ".bumpster/packages/website.json"
+      - ".bumpster/hooks/pre-bump"
+      - ".github/dependabot.yml"
       - ".github/workflows/release.yml"
       - ".github/workflows/site-ci.yml"
       - ".github/workflows/pages.yml"

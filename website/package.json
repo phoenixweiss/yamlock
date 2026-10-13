@@ -15,6 +15,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "content:check": "node scripts/verify-content.mjs",
+    "release:check": "node scripts/release-check.mjs",
     "output:check": "node scripts/verify-output.mjs",
     "test:browser": "playwright test",
     "lighthouse": "node scripts/run-lighthouse.mjs",

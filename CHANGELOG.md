@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file. Release ver
 
 ## [Unreleased]
 
+### Changed
+
+- Website delivery now uses independent Bumpster package versions and `website/vX.Y.Z` tags. CLI/npm releases retain root versions and `vX.Y.Z` tags.
+
 ## [1.1.6] - 2026-09-03
 
 ### Fixed
