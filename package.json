@@ -57,7 +57,7 @@
   },
   "homepage": "https://phoenixweiss.github.io/yamlock/",
   "dependencies": {
-    "js-yaml": "^4.3.2"
+    "js-yaml": "^5.4.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
