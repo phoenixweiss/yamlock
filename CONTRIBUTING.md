@@ -4,7 +4,8 @@ Thanks for your interest in improving yamlock! This document describes how to se
 
 ## Prerequisites
 
-- Node.js 22.x (via `asdf install nodejs 22`)
+- Node.js 24.20.0 (pinned in `.nvmrc` and `.tool-versions`; use `asdf install`
+  or `nvm install && nvm use` from the repository root)
 - Yarn Classic 1.22.22
 - macOS or Linux environment (CLI integration tests spawn subprocesses)
 - Bumpster 1.3.0 or newer for maintainer release operations
@@ -12,7 +13,7 @@ Thanks for your interest in improving yamlock! This document describes how to se
 ## Local development
 
 1. Fork and clone the repository.
-2. Install dependencies: `yarn install`
+2. Select the pinned Node.js version and install dependencies: `yarn install --frozen-lockfile`
 3. Use these scripts:
    - `yarn lint` – ESLint flat config
    - `yarn check:docs` – verify local Markdown links and anchors
@@ -28,6 +29,19 @@ Before submitting code, ensure `yarn lint`, `yarn check:docs`,
 `yarn test:package` pass locally. `YAMLOCK_TEST_SOURCE=1` is reserved for the
 repository integration suite; the package smoke verifies that the installed CLI
 loads `dist` while `src` is absent.
+
+Node.js 24 is the development and release-check environment, not the minimum
+runtime. Keep `engines.node` at `>=22.0.0` and `@types/node` on major 22 so type
+checks do not silently allow newer Node.js APIs. CI runs the full quality gate
+on the pinned development version and compatibility tests on Node.js 22/24/26
+across Linux and macOS, including installed-package checks on Node.js 22.
+The Bumpster hook uses the selected local Node.js environment; select the
+pinned version before running release checks.
+
+Check both `node --version` and `yarn node --version` after selecting the
+environment. If another installation (for example Homebrew) takes precedence
+over asdf shims in `PATH`, use `asdf exec yarn <command>` to run scripts with
+the project's selected Node.js version instead of changing global defaults.
 
 ## Issues
 
@@ -99,7 +113,8 @@ existing branch rules; Pages still validates the selected tag and main ancestry.
 
 1. Finalize a dated target section in `website/CHANGELOG.md` and commit the
    website changes on `dev`.
-2. Use Node.js 24 and Yarn Classic 1.22.22. From `website/`, run
+2. Select Node.js 24.20.0 from `website/.nvmrc` / `website/.tool-versions`
+   and Yarn Classic 1.22.22. From `website/`, run
    `yarn release:check --next-version X.Y.Z` and `yarn check:full`.
 3. From the repository root, inspect `bumpster --package website --status`.
    After release approval, run `bumpster --package website --patch` (or

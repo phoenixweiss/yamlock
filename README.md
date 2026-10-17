@@ -18,7 +18,8 @@ Value-level encryption for YAML and JSON configuration files. The name **yamlock
 - Node.js 22 or newer
 
 The package works with npm or another Node.js package manager. This repository
-uses Yarn Classic 1.22.22 for development and release checks.
+uses Node.js 24 (pinned in `.nvmrc` / `.tool-versions`) and Yarn Classic 1.22.22
+for development and release checks. The package still supports Node.js 22+.
 
 ## Installation
 

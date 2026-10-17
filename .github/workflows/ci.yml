@@ -20,17 +20,17 @@ env:
 
 jobs:
   quality:
-    name: Quality (Node 22, Ubuntu)
+    name: Quality (Node 24, Ubuntu)
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Use Node.js 22
+      - name: Use development Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
           cache: yarn
           cache-dependency-path: yarn.lock
       - name: Use Yarn Classic
@@ -63,7 +63,7 @@ jobs:
         node: ['22', '24', '26']
         exclude:
           - os: ubuntu-latest
-            node: '22'
+            node: '24'
 
     steps:
       - name: Check out repository
@@ -82,6 +82,9 @@ jobs:
         run: test "$(yarn --version)" = "$YARN_VERSION"
       - name: Test
         run: yarn test
+      - name: Verify installed package on minimum supported Node.js
+        if: matrix.node == '22'
+        run: yarn test:package
 
   release-package:
     name: Release package preflight
@@ -93,10 +96,10 @@ jobs:
     steps:
       - name: Check out tagged source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Use Node.js 22
+      - name: Use development Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
           cache: yarn
           cache-dependency-path: yarn.lock
       - name: Use Yarn Classic

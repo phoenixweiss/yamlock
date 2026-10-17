@@ -10,6 +10,9 @@ All notable changes to this project will be documented in this file. Release ver
 
 ### Changed
 
+- Use pinned Node.js 24 for development and release checks while retaining Node.js 22+ runtime support and Node.js 22 type definitions.
+- Verify installed packages on Node.js 22 in the compatibility matrix.
+- Pin the website's Node.js patch version and simplify repository ignore rules for the current toolchain.
 - Website delivery now uses independent Bumpster package versions and `website/vX.Y.Z` tags. CLI/npm releases retain root versions and `vX.Y.Z` tags.
 
 ## [1.1.6] - 2026-09-03
