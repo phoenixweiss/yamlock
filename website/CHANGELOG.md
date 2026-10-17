@@ -5,6 +5,8 @@ Its initial configuration baseline was `0.0.0`; independent releases start at `0
 
 ## [Unreleased]
 
+## [0.0.3] - 2026-10-18
+
 ### Changed
 
 - Pin development, CI, and Pages to Node.js 24.20.0 for reproducible builds.
