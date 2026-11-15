@@ -7,6 +7,10 @@ Its initial configuration baseline was `0.0.0`; independent releases start at `0
 
 ## [0.0.4] - 2026-11-16
 
+### Security
+
+- Update the website's development tooling to ESLint 10.15.0 with patched minimatch and fast-uri dependencies.
+
 ### Changed
 
 - Configure root-based assets, navigation, and site metadata for `https://yamlock.phoenixweiss.me/`.
