@@ -5,7 +5,7 @@ import { fileURLToPath, URL } from "node:url";
 const websiteRoot = new URL("../", import.meta.url);
 const publicRoot = new URL("../public/", import.meta.url);
 const brandRoot = new URL("../../docs/brand/", import.meta.url);
-const siteUrl = "https://phoenixweiss.github.io/yamlock/";
+const siteUrl = "https://yamlock.phoenixweiss.me/";
 
 async function read(relativeUrl) {
   return readFile(relativeUrl, "utf8");
@@ -33,8 +33,8 @@ for (const expected of [
   '<meta name="twitter:card" content="summary_large_image" />',
   'name="twitter:image"',
   'name="twitter:image:alt"',
-  '<link rel="manifest" href="/yamlock/site.webmanifest" />',
-  '<link rel="icon" type="image/svg+xml" href="/yamlock/favicon.svg" />',
+  '<link rel="manifest" href="/site.webmanifest" />',
+  '<link rel="icon" type="image/svg+xml" href="/favicon.svg" />',
   `<link rel="canonical" href="${siteUrl}" />`,
 ]) {
   requireText(indexHtml, expected, indexUrl);
@@ -45,9 +45,9 @@ const manifest = JSON.parse(await read(manifestUrl));
 
 if (
   manifest.lang !== "en" ||
-  manifest.start_url !== "/yamlock/" ||
-  manifest.scope !== "/yamlock/" ||
-  manifest.icons?.[0]?.src !== "/yamlock/favicon.svg"
+  manifest.start_url !== "/" ||
+  manifest.scope !== "/" ||
+  manifest.icons?.[0]?.src !== "/favicon.svg"
 ) {
   throw new Error(`${fileURLToPath(manifestUrl)} has invalid site paths.`);
 }

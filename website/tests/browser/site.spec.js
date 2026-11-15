@@ -62,6 +62,86 @@ test("renders a coherent desktop and mobile layout", async ({
   });
 });
 
+test("serves root-domain metadata, resources, and home links", async ({
+  page,
+  request,
+}) => {
+  const failures = [];
+  page.on("response", (response) => {
+    if (response.status() >= 400) failures.push(response.url());
+  });
+  page.on("requestfailed", (request) => failures.push(request.url()));
+  page.on("pageerror", (error) => failures.push(error.message));
+
+  // Direct entry with a fragment must not require a project-path redirect.
+  const response = await page.goto(`${localOrigin}/#install`);
+  expect(response.status()).toBe(200);
+  await page.evaluate(() => document.fonts.ready);
+  await expect(page).toHaveURL(`${localOrigin}/#install`);
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+    "href",
+    "https://yamlock.phoenixweiss.me/",
+  );
+  await expect(page.locator('meta[property="og:url"]')).toHaveAttribute(
+    "content",
+    "https://yamlock.phoenixweiss.me/",
+  );
+  for (const selector of [
+    'meta[property="og:image"]',
+    'meta[name="twitter:image"]',
+  ]) {
+    await expect(page.locator(selector)).toHaveAttribute(
+      "content",
+      "https://yamlock.phoenixweiss.me/og.png",
+    );
+  }
+
+  for (const [path, contentType] of [
+    ["/favicon.svg", "image/svg+xml"],
+    ["/og.png", "image/png"],
+    ["/site.webmanifest", "application/manifest+json"],
+    ["/robots.txt", "text/plain"],
+    ["/sitemap.xml", /^(?:application|text)\/xml(?:;|$)/],
+    ["/version.json", "application/json"],
+  ]) {
+    const asset = await request.get(`${localOrigin}${path}`);
+    expect(asset.status(), path).toBe(200);
+    expect(asset.headers()["content-type"], path).toMatch(contentType);
+  }
+  await expect(page.locator('link[rel="manifest"]')).toHaveAttribute(
+    "href",
+    "/site.webmanifest",
+  );
+  await expect(page.locator('link[rel="icon"]')).toHaveAttribute(
+    "href",
+    "/favicon.svg",
+  );
+  const manifest = await (
+    await request.get(`${localOrigin}/site.webmanifest`)
+  ).json();
+  expect(manifest.start_url).toBe("/");
+  expect(manifest.scope).toBe("/");
+  expect(manifest.icons[0].src).toBe("/favicon.svg");
+
+  const slider = page.getByRole("slider", {
+    name: "Encryption scanner position",
+  });
+  await expect(slider).toHaveValue("0");
+  for (const logo of [
+    page.locator("header .wordmark"),
+    page.locator("footer .wordmark"),
+  ]) {
+    await expect(logo).toHaveAttribute("href", "/");
+    await logo.click();
+    await expect(page).toHaveURL(`${localOrigin}/`);
+    const skipLink = page.getByRole("link", { name: "Skip to content" });
+    await skipLink.focus();
+    await skipLink.press("Enter");
+    await expect(page).toHaveURL(`${localOrigin}/#main`);
+  }
+  expect(failures).toEqual([]);
+});
+
 test("keeps the wide desktop hero composition cohesive", async ({
   page,
 }, testInfo) => {

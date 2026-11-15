@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://phoenixweiss.github.io/yamlock/sitemap.xml
+Sitemap: https://yamlock.phoenixweiss.me/sitemap.xml

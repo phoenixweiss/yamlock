@@ -60,24 +60,18 @@ assert.deepEqual(versions, { cli: cliVersion, website: websiteState.version });
 const indexUrl = new URL("index.html", distRoot);
 const indexHtml = await readFile(indexUrl, "utf8");
 const scriptPath = indexHtml.match(/<script[^>]+src="([^"]+\.js)"/)?.[1];
-assert.ok(
-  scriptPath?.startsWith("/yamlock/assets/"),
-  "Missing website entry script.",
-);
-const script = await readFile(
-  new URL(scriptPath.slice("/yamlock/".length), distRoot),
-  "utf8",
-);
+assert.ok(scriptPath?.startsWith("/assets/"), "Missing website entry script.");
+const script = await readFile(new URL(scriptPath.slice(1), distRoot), "utf8");
 assert.ok(
   script.includes(cliVersion),
   "Built page must identify the documented CLI version.",
 );
 
 for (const expected of [
-  "/yamlock/assets/",
-  "https://phoenixweiss.github.io/yamlock/",
-  "/yamlock/og.png",
-  "/yamlock/site.webmanifest",
+  "/assets/",
+  "https://yamlock.phoenixweiss.me/",
+  "/og.png",
+  "/site.webmanifest",
 ]) {
   if (!indexHtml.includes(expected)) {
     throw new Error(`${fileURLToPath(indexUrl)} is missing: ${expected}`);

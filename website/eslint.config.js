@@ -4,7 +4,12 @@ import vue from "eslint-plugin-vue";
 
 export default [
   {
-    ignores: ["dist/**", "node_modules/**"],
+    ignores: [
+      "dist/**",
+      "node_modules/**",
+      "playwright-report/**",
+      "test-results/**",
+    ],
   },
   eslint.configs.recommended,
   ...vue.configs["flat/essential"],

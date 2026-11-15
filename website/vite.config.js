@@ -21,7 +21,7 @@ const websiteState = readWebsiteState();
 validateWebsiteState(websiteState);
 
 export default defineConfig({
-  base: "/yamlock/",
+  base: "/",
   define: {
     "import.meta.env.YAMLOCK_VERSION": JSON.stringify(yamlockVersion),
   },

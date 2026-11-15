@@ -131,4 +131,17 @@ Shared brand/content files must be reviewed for effects on both components.
 Independent versions do not isolate Git history: review all commits being
 promoted from `dev` to `main` before either release.
 
+### Website domain configuration
+
+The website build targets `/` at `https://yamlock.phoenixweiss.me/`. Local
+preview, browser tests, and Lighthouse use the same root path. This build does
+not include a GitHub project-path fallback or hostname-based redirects.
+
+Publishing this configuration requires a separately coordinated Pages custom
+domain setting, DNS record, and HTTPS certificate. Do not deploy the root-path
+build to the former `/yamlock/` URL without configuring the domain. For this
+Actions-based Pages workflow, a repository `CNAME` file does not connect the
+domain. Update README, npm homepage, and GitHub About links only after checking
+the live domain. A website release does not update npm package metadata.
+
 Thank you for helping make yamlock better!

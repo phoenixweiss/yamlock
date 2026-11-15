@@ -10,7 +10,7 @@ const version = import.meta.env.YAMLOCK_VERSION;
   <a class="skip-link" href="#main">Skip to content</a>
 
   <header class="site-header">
-    <a class="wordmark" href="/yamlock/">
+    <a class="wordmark" href="/">
       <img :src="brandWordmarkUrl" alt="yamlock" />
     </a>
     <span class="release">v{{ version }} / stable</span>
@@ -125,7 +125,7 @@ const version = import.meta.env.YAMLOCK_VERSION;
   </main>
 
   <footer>
-    <a class="wordmark" href="/yamlock/">
+    <a class="wordmark" href="/">
       <img :src="brandWordmarkUrl" alt="yamlock" />
     </a>
     <span>MIT / phoenixweiss / v{{ version }}</span>

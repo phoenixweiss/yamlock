@@ -3,7 +3,7 @@ import { env } from "node:process";
 import { defineConfig } from "@playwright/test";
 
 const appPort = env.YAMLOCK_PREVIEW_PORT ?? "4173";
-const appUrl = `http://127.0.0.1:${appPort}/yamlock/`;
+const appUrl = `http://127.0.0.1:${appPort}/`;
 const isCi = Boolean(env.CI);
 
 export default defineConfig({

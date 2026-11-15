@@ -5,6 +5,11 @@ Its initial configuration baseline was `0.0.0`; independent releases start at `0
 
 ## [Unreleased]
 
+### Changed
+
+- Configure root-based assets, navigation, and site metadata for `https://yamlock.phoenixweiss.me/`.
+- Exclude generated browser reports from source linting so checks can be rerun after a failed browser test.
+
 ## [0.0.3] - 2026-10-18
 
 ### Changed

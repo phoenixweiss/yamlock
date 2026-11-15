@@ -117,7 +117,7 @@ try {
     chromePath: env.CHROME_PATH,
   });
 
-  const url = `http://127.0.0.1:${address.port}/yamlock/`;
+  const url = `http://127.0.0.1:${address.port}/`;
 
   for (const profile of profiles) {
     const reports = [];
