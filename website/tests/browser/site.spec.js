@@ -74,6 +74,8 @@ test("serves root-domain metadata, resources, and home links", async ({
   page.on("pageerror", (error) => failures.push(error.message));
 
   // Direct entry with a fragment must not require a project-path redirect.
+  // Resource latency must not race the demo's intentional autoplay.
+  await page.emulateMedia({ reducedMotion: "reduce" });
   const response = await page.goto(`${localOrigin}/#install`);
   expect(response.status()).toBe(200);
   await page.evaluate(() => document.fonts.ready);
