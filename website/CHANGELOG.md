@@ -5,6 +5,8 @@ Its initial configuration baseline was `0.0.0`; independent releases start at `0
 
 ## [Unreleased]
 
+## [0.0.4] - 2026-11-16
+
 ### Changed
 
 - Configure root-based assets, navigation, and site metadata for `https://yamlock.phoenixweiss.me/`.
